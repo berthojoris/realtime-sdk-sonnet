@@ -19,7 +19,7 @@ A comprehensive Node.js SDK for real-time analytics with multi-database support.
 ## Installation
 
 ```bash
-npm install @realtime-analytics/sdk
+npm install realtime-analytics-sdk
 ```
 
 ### Database Driver Installation
@@ -47,7 +47,7 @@ npm install better-sqlite3
 For backend analytics processing and data storage:
 
 ```typescript
-import { AnalyticsSDK } from '@realtime-analytics/sdk';
+import { AnalyticsSDK } from 'realtime-analytics-sdk';
 
 const sdk = new AnalyticsSDK({
   database: {
@@ -79,7 +79,7 @@ await sdk.track('page_view', {
 **Step 1**: Start the API server to receive events from browsers:
 
 ```typescript
-import { AnalyticsAPIServer } from '@realtime-analytics/sdk/server';
+import { AnalyticsAPIServer } from 'realtime-analytics-sdk/server';
 
 const server = new AnalyticsAPIServer({
   database: {
@@ -629,7 +629,7 @@ import {
   Session,
   User,
   ServerConfig
-} from '@realtime-analytics/sdk';
+} from 'realtime-analytics-sdk';
 
 const config: ServerConfig = {
   database: {
@@ -697,7 +697,7 @@ await sdk.identify('user-123', 'anon-456', {
 ## Testing
 
 ```typescript
-import { AnalyticsSDK } from '@realtime-analytics/sdk';
+import { AnalyticsSDK } from 'realtime-analytics-sdk';
 
 describe('Analytics SDK', () => {
   let sdk: AnalyticsSDK;

@@ -65,13 +65,13 @@ The Real-time Analytics SDK provides a complete solution for tracking user analy
 ### 1. Install Dependencies
 
 ```bash
-npm install @realtime-analytics/sdk
+npm install realtime-analytics-sdk
 ```
 
 ### 2. Start the API Server
 
 ```typescript
-import { AnalyticsAPIServer } from '@realtime-analytics/sdk/server';
+import { AnalyticsAPIServer } from 'realtime-analytics-sdk/server';
 
 const server = new AnalyticsAPIServer({
   database: {
@@ -142,7 +142,7 @@ npm install better-sqlite3
 #### 2. Create Server Configuration
 
 ```typescript
-import { AnalyticsAPIServer } from '@realtime-analytics/sdk/server';
+import { AnalyticsAPIServer } from 'realtime-analytics-sdk/server';
 
 const config = {
   database: {
@@ -196,7 +196,7 @@ The server automatically provides these endpoints:
 
 ```typescript
 // server.ts
-import { AnalyticsAPIServer } from '@realtime-analytics/sdk/server';
+import { AnalyticsAPIServer } from 'realtime-analytics-sdk/server';
 
 async function main() {
   const server = new AnalyticsAPIServer({
@@ -226,11 +226,11 @@ main();
 #### Option 1: NPM/Yarn (Recommended for Modern Apps)
 
 ```bash
-npm install @realtime-analytics/sdk
+npm install realtime-analytics-sdk
 ```
 
 ```typescript
-import { BrowserAnalyticsSDK } from '@realtime-analytics/sdk/client';
+import { BrowserAnalyticsSDK } from 'realtime-analytics-sdk/client';
 
 const analytics = new BrowserAnalyticsSDK({
   apiKey: 'your-api-key',
@@ -241,7 +241,7 @@ const analytics = new BrowserAnalyticsSDK({
 #### Option 2: CDN (For Quick Integration)
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@realtime-analytics/sdk@latest/dist/browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/realtime-analytics-sdk@latest/dist/browser.min.js"></script>
 <script>
   const analytics = new BrowserAnalyticsSDK({
     apiKey: 'your-api-key',
@@ -527,7 +527,7 @@ player.addEventListener('ended', () => {
 ```typescript
 // React example
 import { useEffect } from 'react';
-import { BrowserAnalyticsSDK } from '@realtime-analytics/sdk/client';
+import { BrowserAnalyticsSDK } from 'realtime-analytics-sdk/client';
 
 const analytics = new BrowserAnalyticsSDK({
   apiKey: 'your-api-key',

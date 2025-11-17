@@ -1,5 +1,5 @@
 {
-  "name": "@realtime-analytics/sdk",
+  "name": "realtime-analytics-sdk",
   "version": "1.0.0",
   "description": "Real-time analytics SDK for Node.js with multi-database support and automatic SQLite directory creation",
   "main": "dist/index.js",

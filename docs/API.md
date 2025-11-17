@@ -273,7 +273,7 @@ Factory function to create a database adapter.
 
 **Example:**
 ```typescript
-import { createAdapter } from '@realtime-analytics/sdk';
+import { createAdapter } from 'realtime-analytics-sdk';
 
 const adapter = createAdapter({
   type: 'mongodb',
