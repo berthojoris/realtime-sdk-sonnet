@@ -13,10 +13,23 @@ export interface APIServerConfig extends ServerConfig {
     port: number;
     host?: string;
     cors?: {
-      origin?: string | string[];
+      origin?: string | string[] | ((origin: string) => boolean);
       credentials?: boolean;
+      methods?: string[];
+      allowedHeaders?: string[];
+      exposedHeaders?: string[];
+      maxAge?: number;
     };
-    apiKeys?: string[];
+    security?: {
+      apiKeys?: string[];
+      allowedIPs?: string[];
+      blockedIPs?: string[];
+      trustProxy?: boolean;
+      rateLimit?: {
+        windowMs?: number;
+        maxRequests?: number;
+      };
+    };
     enableWebSocket?: boolean;
   };
 }
@@ -34,14 +47,35 @@ export class AnalyticsAPIServer {
         host: '0.0.0.0',
         cors: {
           origin: '*',
-          credentials: true
+          credentials: true,
+          methods: ['GET', 'POST', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'X-API-Key'],
+          exposedHeaders: [],
+          maxAge: 86400 // 24 hours
         },
-        apiKeys: [],
+        security: {
+          apiKeys: [],
+          allowedIPs: [],
+          blockedIPs: [],
+          trustProxy: false,
+          rateLimit: {
+            windowMs: 60000, // 1 minute
+            maxRequests: 100
+          }
+        },
         enableWebSocket: false,
         ...config.server
       },
       ...config
     };
+
+    // Merge nested configs properly
+    if (config.server?.cors) {
+      this.config.server.cors = { ...this.config.server.cors, ...config.server.cors };
+    }
+    if (config.server?.security) {
+      this.config.server.security = { ...this.config.server.security, ...config.server.security };
+    }
 
     this.sdk = new AnalyticsSDK(config);
   }
@@ -123,6 +157,12 @@ export class AnalyticsAPIServer {
     const pathname = url.pathname || '';
 
     try {
+      // Verify IP allowlist/blocklist
+      if (!this.verifyIPAccess(req)) {
+        this.sendError(res, 403, 'Forbidden: IP address not allowed');
+        return;
+      }
+
       // Verify API key
       if (!this.verifyApiKey(req)) {
         this.sendError(res, 401, 'Unauthorized: Invalid API key');
@@ -361,42 +401,189 @@ export class AnalyticsAPIServer {
   }
 
   /**
+   * Get client IP address
+   */
+  private getClientIP(req: IncomingMessage): string {
+    const security = this.config.server.security;
+    
+    // Trust proxy headers if enabled
+    if (security?.trustProxy) {
+      const forwarded = req.headers['x-forwarded-for'] as string;
+      if (forwarded) {
+        return forwarded.split(',')[0].trim();
+      }
+      
+      const realIP = req.headers['x-real-ip'] as string;
+      if (realIP) {
+        return realIP;
+      }
+    }
+    
+    // Fall back to socket address
+    return req.socket.remoteAddress || '';
+  }
+
+  /**
+   * Verify IP access (allowlist/blocklist)
+   */
+  private verifyIPAccess(req: IncomingMessage): boolean {
+    const security = this.config.server.security;
+    
+    // If no IP restrictions configured, allow all
+    if (!security?.allowedIPs?.length && !security?.blockedIPs?.length) {
+      return true;
+    }
+
+    const clientIP = this.getClientIP(req);
+    
+    // Check blocklist first
+    if (security.blockedIPs && security.blockedIPs.length > 0) {
+      if (this.matchIPPattern(clientIP, security.blockedIPs)) {
+        return false;
+      }
+    }
+
+    // If allowlist is configured, IP must be in it
+    if (security.allowedIPs && security.allowedIPs.length > 0) {
+      return this.matchIPPattern(clientIP, security.allowedIPs);
+    }
+
+    return true;
+  }
+
+  /**
+   * Match IP against patterns (supports wildcards and CIDR)
+   */
+  private matchIPPattern(ip: string, patterns: string[]): boolean {
+    // Normalize IPv6 addresses
+    const normalizedIP = ip.replace(/^::ffff:/, '');
+    
+    for (const pattern of patterns) {
+      // Exact match
+      if (pattern === normalizedIP || pattern === ip) {
+        return true;
+      }
+
+      // Wildcard match (e.g., "192.168.*" or "192.168.1.*")
+      if (pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+        if (regex.test(normalizedIP)) {
+          return true;
+        }
+      }
+
+      // Simple CIDR support for common cases
+      if (pattern.includes('/')) {
+        const [network, bits] = pattern.split('/');
+        const maskBits = parseInt(bits);
+        
+        // Simple IPv4 CIDR matching
+        if (this.isIPv4(normalizedIP) && this.isIPv4(network)) {
+          if (this.matchIPv4CIDR(normalizedIP, network, maskBits)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if IP is IPv4
+   */
+  private isIPv4(ip: string): boolean {
+    return /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
+  }
+
+  /**
+   * Match IPv4 CIDR
+   */
+  private matchIPv4CIDR(ip: string, network: string, maskBits: number): boolean {
+    const ipParts = ip.split('.').map(Number);
+    const networkParts = network.split('.').map(Number);
+    
+    let mask = -1 << (32 - maskBits);
+    
+    for (let i = 0; i < 4; i++) {
+      const ipByte = ipParts[i];
+      const netByte = networkParts[i];
+      const maskByte = (mask >> ((3 - i) * 8)) & 0xFF;
+      
+      if ((ipByte & maskByte) !== (netByte & maskByte)) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  /**
    * Verify API key
    */
   private verifyApiKey(req: IncomingMessage): boolean {
+    const security = this.config.server.security;
+    
     // If no API keys configured, allow all requests
-    if (!this.config.server.apiKeys || this.config.server.apiKeys.length === 0) {
+    if (!security?.apiKeys || security.apiKeys.length === 0) {
       return true;
     }
 
     const apiKey = req.headers['x-api-key'] as string;
-    return this.config.server.apiKeys.includes(apiKey);
+    return security.apiKeys.includes(apiKey);
   }
 
   /**
    * Set CORS headers
    */
   private setCORSHeaders(req: IncomingMessage, res: ServerResponse): void {
-    const { origin, credentials } = this.config.server.cors || {};
+    const cors = this.config.server.cors;
+    if (!cors) return;
     
     const requestOrigin = req.headers.origin;
     
-    if (origin === '*') {
+    // Handle origin
+    let allowOrigin = false;
+    if (cors.origin === '*') {
       res.setHeader('Access-Control-Allow-Origin', '*');
-    } else if (Array.isArray(origin)) {
-      if (requestOrigin && origin.includes(requestOrigin)) {
+      allowOrigin = true;
+    } else if (typeof cors.origin === 'function') {
+      if (requestOrigin && cors.origin(requestOrigin)) {
         res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+        allowOrigin = true;
       }
-    } else if (origin && requestOrigin === origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (Array.isArray(cors.origin)) {
+      if (requestOrigin && cors.origin.includes(requestOrigin)) {
+        res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+        allowOrigin = true;
+      }
+    } else if (cors.origin && requestOrigin === cors.origin) {
+      res.setHeader('Access-Control-Allow-Origin', cors.origin);
+      allowOrigin = true;
     }
 
-    if (credentials) {
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
+    // Only set other CORS headers if origin is allowed
+    if (allowOrigin) {
+      if (cors.credentials) {
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
 
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+      if (cors.methods && cors.methods.length > 0) {
+        res.setHeader('Access-Control-Allow-Methods', cors.methods.join(', '));
+      }
+
+      if (cors.allowedHeaders && cors.allowedHeaders.length > 0) {
+        res.setHeader('Access-Control-Allow-Headers', cors.allowedHeaders.join(', '));
+      }
+
+      if (cors.exposedHeaders && cors.exposedHeaders.length > 0) {
+        res.setHeader('Access-Control-Expose-Headers', cors.exposedHeaders.join(', '));
+      }
+
+      if (cors.maxAge) {
+        res.setHeader('Access-Control-Max-Age', cors.maxAge.toString());
+      }
+    }
   }
 
   /**

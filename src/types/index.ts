@@ -157,8 +157,22 @@ export interface ServerConfig {
     port?: number;
     host?: string;
     cors?: {
-      origin?: string | string[];
+      origin?: string | string[] | ((origin: string) => boolean);
       credentials?: boolean;
+      methods?: string[];
+      allowedHeaders?: string[];
+      exposedHeaders?: string[];
+      maxAge?: number;
+    };
+    security?: {
+      apiKeys?: string[];
+      allowedIPs?: string[];
+      blockedIPs?: string[];
+      trustProxy?: boolean;
+      rateLimit?: {
+        windowMs?: number;
+        maxRequests?: number;
+      };
     };
   };
   analytics?: {

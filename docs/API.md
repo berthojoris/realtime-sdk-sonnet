@@ -670,8 +670,22 @@ interface ServerConfig {
     port?: number;
     host?: string;
     cors?: {
-      origin?: string | string[];
+      origin?: string | string[] | ((origin: string) => boolean);
       credentials?: boolean;
+      methods?: string[];
+      allowedHeaders?: string[];
+      exposedHeaders?: string[];
+      maxAge?: number;
+    };
+    security?: {
+      apiKeys?: string[];
+      allowedIPs?: string[];
+      blockedIPs?: string[];
+      trustProxy?: boolean;
+      rateLimit?: {
+        windowMs?: number;
+        maxRequests?: number;
+      };
     };
   };
   analytics?: {
@@ -690,6 +704,166 @@ interface ServerConfig {
   };
 }
 ```
+
+#### CORS Configuration
+
+The SDK provides comprehensive CORS (Cross-Origin Resource Sharing) configuration:
+
+**`origin`**: Controls which origins can access your API
+- `'*'` - Allow all origins (development only)
+- `string` - Single allowed origin (e.g., `'https://example.com'`)
+- `string[]` - Multiple allowed origins (e.g., `['https://app.com', 'https://admin.app.com']`)
+- `function` - Dynamic validation function (e.g., `(origin) => origin.endsWith('.example.com')`)
+
+**`credentials`**: Enable credentials (cookies, authorization headers) in cross-origin requests
+- `true` - Allow credentials
+- `false` - Do not allow credentials
+
+**`methods`**: HTTP methods allowed for CORS requests
+- Default: `['GET', 'POST', 'OPTIONS']`
+- Example: `['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']`
+
+**`allowedHeaders`**: Request headers allowed from client
+- Default: `['Content-Type', 'X-API-Key']`
+- Example: `['Content-Type', 'Authorization', 'X-Custom-Header']`
+
+**`exposedHeaders`**: Response headers exposed to client
+- Default: `[]`
+- Example: `['X-Request-ID', 'X-RateLimit-Remaining']`
+
+**`maxAge`**: Preflight cache duration in seconds
+- Default: `86400` (24 hours)
+- Example: `3600` (1 hour)
+
+**Example CORS Configurations:**
+
+```typescript
+// Allow all origins (development)
+cors: {
+  origin: '*',
+  credentials: true
+}
+
+// Specific origins
+cors: {
+  origin: ['https://app.example.com', 'https://admin.example.com'],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}
+
+// Dynamic validation
+cors: {
+  origin: (origin) => {
+    const allowedDomains = ['.example.com', '.myapp.com'];
+    return allowedDomains.some(domain => origin.endsWith(domain));
+  },
+  credentials: true,
+  exposedHeaders: ['X-Request-ID']
+}
+```
+
+#### Security Configuration
+
+The SDK provides robust security features for production deployments:
+
+**`apiKeys`**: Array of valid API keys for authentication
+- Empty array `[]` - No authentication required (development only)
+- Example: `['key1', 'key2']` - Requests must include `X-API-Key` header
+
+**`allowedIPs`**: IP allowlist (whitelist)
+- Empty array `[]` - Allow all IPs
+- Supports multiple formats:
+  - Exact IP: `'192.168.1.100'`
+  - Wildcard: `'192.168.1.*'`
+  - CIDR: `'10.0.0.0/8'`
+  - IPv6: `'::1'`
+
+**`blockedIPs`**: IP blocklist (blacklist)
+- Empty array `[]` - No IPs blocked
+- Same format support as allowedIPs
+- Checked before allowlist
+
+**`trustProxy`**: Trust X-Forwarded-For headers
+- `false` - Use socket remote address (default)
+- `true` - Trust proxy headers (enable if behind nginx, cloudflare, etc.)
+
+**`rateLimit`**: Rate limiting per IP
+- `windowMs`: Time window in milliseconds
+- `maxRequests`: Maximum requests per window
+
+**Example Security Configurations:**
+
+```typescript
+// Production with API keys
+security: {
+  apiKeys: ['prod-key-1', 'prod-key-2'],
+  trustProxy: true,
+  rateLimit: {
+    windowMs: 60000,    // 1 minute
+    maxRequests: 100
+  }
+}
+
+// IP-restricted internal API
+security: {
+  allowedIPs: [
+    '192.168.1.0/24',   // Internal network
+    '10.0.0.0/8',       // VPN network
+    '203.0.113.50'      // Specific external IP
+  ],
+  trustProxy: true
+}
+
+// Public API with rate limiting
+security: {
+  apiKeys: ['public-api-key'],
+  blockedIPs: [
+    '198.51.100.0/24'   // Block suspicious subnet
+  ],
+  rateLimit: {
+    windowMs: 60000,
+    maxRequests: 1000
+  }
+}
+```
+
+**IP Pattern Matching:**
+
+The SDK supports flexible IP matching:
+- **Exact match**: `'192.168.1.100'` matches only that IP
+- **Wildcard**: `'192.168.*'` matches all IPs starting with 192.168
+- **CIDR notation**: `'10.0.0.0/8'` matches entire subnet
+- **IPv6**: Full IPv6 address support
+
+**Security Best Practices:**
+
+1. **Always use API keys in production**
+   ```typescript
+   security: { apiKeys: ['strong-random-key'] }
+   ```
+
+2. **Enable trustProxy behind reverse proxy**
+   ```typescript
+   security: { trustProxy: true }
+   ```
+
+3. **Use specific CORS origins**
+   ```typescript
+   cors: { origin: ['https://yourapp.com'] }
+   ```
+
+4. **Implement rate limiting**
+   ```typescript
+   security: {
+     rateLimit: { windowMs: 60000, maxRequests: 100 }
+   }
+   ```
+
+5. **Use IP allowlist for internal APIs**
+   ```typescript
+   security: { allowedIPs: ['10.0.0.0/8'] }
+   ```
 
 ### DatabaseConfig
 
