@@ -159,10 +159,6 @@ button.addEventListener('click', () => {
 });
 ```
 
-**Read more:** [Non-Blocking Design Documentation](docs/NON_BLOCKING_DESIGN.md)
-
-**See the complete [Web Client Integration Guide](docs/WEB_CLIENT_GUIDE.md) for detailed instructions.**
-
 ## Configuration
 
 ### Database Configuration
