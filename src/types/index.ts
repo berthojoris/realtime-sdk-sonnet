@@ -4,15 +4,15 @@
 
 // Event Types
 export enum EventType {
-  CLICK = 'click',
-  PAGE_VIEW = 'page_view',
-  SCROLL = 'scroll',
-  INPUT = 'input',
-  NAVIGATION = 'navigation',
-  ERROR = 'error',
-  CUSTOM = 'custom',
-  SESSION_START = 'session_start',
-  SESSION_END = 'session_end'
+  CLICK = "click",
+  PAGE_VIEW = "page_view",
+  SCROLL = "scroll",
+  INPUT = "input",
+  NAVIGATION = "navigation",
+  ERROR = "error",
+  CUSTOM = "custom",
+  SESSION_START = "session_start",
+  SESSION_END = "session_end",
 }
 
 // Event Interface
@@ -138,7 +138,7 @@ export interface SDKConfig {
   enablePrivacyMode?: boolean;
   respectDoNotTrack?: boolean;
   cookieOptions?: CookieOptions;
-  transport?: 'fetch' | 'beacon' | 'websocket';
+  transport?: "fetch" | "beacon" | "websocket";
 }
 
 // Cookie Options
@@ -147,7 +147,7 @@ export interface CookieOptions {
   path?: string;
   expires?: number;
   secure?: boolean;
-  sameSite?: 'strict' | 'lax' | 'none';
+  sameSite?: "strict" | "lax" | "none";
 }
 
 // Server Configuration
@@ -174,6 +174,7 @@ export interface ServerConfig {
         maxRequests?: number;
       };
     };
+    enableWebSocket?: boolean;
   };
   analytics?: {
     batchSize?: number;
@@ -193,7 +194,7 @@ export interface ServerConfig {
 
 // Database Configuration
 export interface DatabaseConfig {
-  type: 'mysql' | 'postgresql' | 'mongodb' | 'sqlite' | 'plaintext';
+  type: "mysql" | "postgresql" | "mongodb" | "sqlite" | "plaintext";
   connection?: {
     host?: string;
     port?: number;
@@ -221,7 +222,7 @@ export interface QueueItem {
 
 // Real-time Stream Event
 export interface StreamEvent {
-  type: 'event' | 'stats' | 'session';
+  type: "event" | "stats" | "session";
   data: AnalyticsEvent | EventStats | Session;
   timestamp: number;
 }
@@ -232,35 +233,40 @@ export interface Plugin {
   version: string;
   initialize?(sdk: any): void;
   track?(event: AnalyticsEvent): void | AnalyticsEvent;
-  beforeSend?(event: AnalyticsEvent): void | AnalyticsEvent | Promise<AnalyticsEvent>;
+  beforeSend?(
+    event: AnalyticsEvent,
+  ): void | AnalyticsEvent | Promise<AnalyticsEvent>;
   afterSend?(event: AnalyticsEvent): void;
 }
 
 // Error Types
 export class AnalyticsError extends Error {
-  constructor(message: string, public code?: string) {
+  constructor(
+    message: string,
+    public code?: string,
+  ) {
     super(message);
-    this.name = 'AnalyticsError';
+    this.name = "AnalyticsError";
   }
 }
 
 export class DatabaseError extends AnalyticsError {
   constructor(message: string, code?: string) {
     super(message, code);
-    this.name = 'DatabaseError';
+    this.name = "DatabaseError";
   }
 }
 
 export class NetworkError extends AnalyticsError {
   constructor(message: string, code?: string) {
     super(message, code);
-    this.name = 'NetworkError';
+    this.name = "NetworkError";
   }
 }
 
 export class ValidationError extends AnalyticsError {
   constructor(message: string, code?: string) {
     super(message, code);
-    this.name = 'ValidationError';
+    this.name = "ValidationError";
   }
 }

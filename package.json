@@ -7,6 +7,13 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "start": "node dist/server/server.js",
+    "start:dev": "npm run build && node dist/server/server.js",
+    "migrate": "npm run build && node dist/migrations/cli.js",
+    "migrate:up": "npm run migrate up",
+    "migrate:down": "npm run migrate down",
+    "migrate:status": "npm run migrate status",
+    "migrate:fresh": "npm run migrate fresh",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "prepare": "npm run build"
@@ -25,6 +32,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^16.6.1",
     "eventemitter3": "^5.0.1",
     "uuid": "^9.0.1"
   },
@@ -42,10 +50,10 @@
     "typescript": "^5.3.2"
   },
   "peerDependencies": {
-    "mysql2": "^3.6.5",
-    "pg": "^8.11.3",
+    "better-sqlite3": "^9.2.2",
     "mongodb": "^6.3.0",
-    "better-sqlite3": "^9.2.2"
+    "mysql2": "^3.6.5",
+    "pg": "^8.11.3"
   },
   "peerDependenciesMeta": {
     "mysql2": {

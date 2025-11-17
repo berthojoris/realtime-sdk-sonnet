@@ -3,5 +3,6 @@
  * Export for server-side usage
  */
 
-export { AnalyticsAPIServer } from './APIServer';
-export type { APIServerConfig } from './APIServer';
+export { AnalyticsAPIServer } from "./APIServer";
+export type { APIServerConfig } from "./APIServer";
+export { startServer, stopServer, setupGracefulShutdown } from "./server";
