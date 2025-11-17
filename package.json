@@ -1,6 +1,6 @@
 {
   "name": "realtime-analytics-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Real-time analytics SDK for Node.js with multi-database support and automatic SQLite directory creation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
