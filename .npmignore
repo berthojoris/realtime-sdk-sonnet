@@ -1,0 +1,63 @@
+# Source files (compiled version in dist/)
+src/
+tsconfig.json
+
+# Development files
+node_modules/
+.git/
+.github/
+.vscode/
+
+# Test files
+test/
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+test-*.js
+coverage/
+
+# Documentation (except what's in package.json files array)
+docs/
+examples/
+*.md
+!README.md
+!SETUP_GUIDE.md
+
+# Build artifacts
+*.log
+*.tgz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+data/
+storage/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Misc
+dist/test-*.js
+requirement.md
+CHANGELOG.md
+WEB_CLIENT_SUMMARY.md
+DOCS_INDEX.md
+GETTING_STARTED.md
+NOTE.txt
+PUBLISHING.md
