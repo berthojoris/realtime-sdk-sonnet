@@ -1,1 +1,0 @@
-read carefully this prd file   and design and create for me an SDK with nodejs for analitics realtime report. All client can use this SDL with javascript language can use this SDK for create an realtime analitics with cross database like MySQL, PostgreSQL, NoSQL, SQLite, MongoDB, Plaintext, etc
