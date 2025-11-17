@@ -710,6 +710,6 @@ Contributions are welcome! Please read our contributing guidelines before submit
 ## Support
 
 For issues and questions:
-- GitHub Issues: [Create an issue](https://github.com/yourrepo/issues)
-- Documentation: [Full docs](https://docs.example.com)
-- Email: support@example.com
+- GitHub Issues: [Create an issue](https://github.com/berthojoris/realtime-sdk-sonnet/issues)
+- Documentation: [Full docs](https://github.com/berthojoris/realtime-sdk-sonnet)
+- Email: berthojoris@gmail.com
