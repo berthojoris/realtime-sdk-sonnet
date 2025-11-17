@@ -41,41 +41,51 @@ export class AnalyticsAPIServer {
   private wsClients: Set<any> = new Set();
 
   constructor(config: APIServerConfig) {
-    this.config = {
-      server: {
-        port: 3000,
-        host: '0.0.0.0',
-        cors: {
-          origin: '*',
-          credentials: true,
-          methods: ['GET', 'POST', 'OPTIONS'],
-          allowedHeaders: ['Content-Type', 'X-API-Key'],
-          exposedHeaders: [],
-          maxAge: 86400 // 24 hours
-        },
-        security: {
-          apiKeys: [],
-          allowedIPs: [],
-          blockedIPs: [],
-          trustProxy: false,
-          rateLimit: {
-            windowMs: 60000, // 1 minute
-            maxRequests: 100
-          }
-        },
-        enableWebSocket: false,
-        ...config.server
+    // Set defaults first
+    const defaultServer = {
+      port: 3000,
+      host: '0.0.0.0',
+      cors: {
+        origin: '*',
+        credentials: true,
+        methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'X-API-Key'],
+        exposedHeaders: [],
+        maxAge: 86400 // 24 hours
       },
-      ...config
+      security: {
+        apiKeys: [],
+        allowedIPs: [],
+        blockedIPs: [],
+        trustProxy: false,
+        rateLimit: {
+          windowMs: 60000, // 1 minute
+          maxRequests: 100
+        }
+      },
+      enableWebSocket: false
     };
 
-    // Merge nested configs properly
-    if (config.server?.cors) {
-      this.config.server.cors = { ...this.config.server.cors, ...config.server.cors };
-    }
-    if (config.server?.security) {
-      this.config.server.security = { ...this.config.server.security, ...config.server.security };
-    }
+    // Merge configs properly
+    this.config = {
+      ...config,
+      server: {
+        ...defaultServer,
+        ...config.server,
+        cors: {
+          ...defaultServer.cors,
+          ...config.server?.cors
+        },
+        security: {
+          ...defaultServer.security,
+          ...config.server?.security,
+          rateLimit: {
+            ...defaultServer.security.rateLimit,
+            ...config.server?.security?.rateLimit
+          }
+        }
+      }
+    };
 
     this.sdk = new AnalyticsSDK(config);
   }

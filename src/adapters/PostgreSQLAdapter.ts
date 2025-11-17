@@ -285,7 +285,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
       );
 
       const eventsByType: Record<string, number> = {};
-      typeResult.rows.forEach(row => {
+      typeResult.rows.forEach((row: any) => {
         eventsByType[row.type] = parseInt(row.count);
       });
 

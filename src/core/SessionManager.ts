@@ -76,11 +76,11 @@ export class SessionManager {
 
     // Check database if adapter is available
     if (this.adapter) {
-      session = await this.adapter.getSession(sessionId);
+      const dbSession = await this.adapter.getSession(sessionId);
       
-      if (session) {
-        this.sessions.set(sessionId, session);
-        return session;
+      if (dbSession) {
+        this.sessions.set(sessionId, dbSession);
+        return dbSession;
       }
     }
 
@@ -182,11 +182,11 @@ export class SessionManager {
 
     // Check database if adapter is available
     if (this.adapter) {
-      user = await this.adapter.getUser(userId);
+      const dbUser = await this.adapter.getUser(userId);
       
-      if (user) {
-        this.users.set(user.anonymousId, user);
-        return user;
+      if (dbUser) {
+        this.users.set(dbUser.anonymousId, dbUser);
+        return dbUser;
       }
     }
 
