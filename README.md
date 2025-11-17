@@ -14,6 +14,7 @@ A comprehensive Node.js SDK for real-time analytics with multi-database support.
 - 🎯 **Type Safety**: Full TypeScript support with comprehensive type definitions
 - 🔄 **Offline Support**: Queue events when offline and sync when reconnected
 - 🛡️ **Data Retention**: Configurable data retention policies
+- 🚫 **100% Non-Blocking**: Browser SDK never blocks your app - guaranteed silent operation
 
 ## Installation
 
@@ -113,6 +114,10 @@ await server.start();
             enableAutoTracking: true
         });
         
+        // ✓ All SDK operations are non-blocking (fire-and-forget)
+        // ✓ Never throws errors - fails silently
+        // ✓ Your app keeps running even if server is down
+        
         // Track page view
         analytics.page();
         
@@ -131,6 +136,30 @@ await server.start();
 </body>
 </html>
 ```
+
+### 🚫 Non-Blocking Guarantee
+
+**The Browser SDK is 100% non-blocking and will NEVER interfere with your application:**
+
+- ✅ **Never blocks the UI** - All operations return immediately
+- ✅ **Never throws errors** - Fails silently without breaking your app
+- ✅ **Works offline** - Queues events when connection is lost
+- ✅ **Handles failures gracefully** - Automatic retries with exponential backoff
+- ✅ **Silent operation** - SDK errors sent to backend, never shown to users
+
+```javascript
+// Even with bad data or server errors, your app keeps running!
+analytics.track('event', { data: 'value' });
+console.log('This runs immediately!'); // ✓ Never blocked
+
+// UI interactions are never affected
+button.addEventListener('click', () => {
+    analytics.track('click', { button: 'submit' }); // Fire-and-forget
+    handleClick(); // ✓ Runs immediately, never waits for analytics
+});
+```
+
+**Read more:** [Non-Blocking Design Documentation](docs/NON_BLOCKING_DESIGN.md)
 
 **See the complete [Web Client Integration Guide](docs/WEB_CLIENT_GUIDE.md) for detailed instructions.**
 

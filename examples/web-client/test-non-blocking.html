@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics SDK - Non-Blocking Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .test-section h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        button.danger:hover {
+            background: #c82333;
+        }
+        button.success {
+            background: #28a745;
+        }
+        button.success:hover {
+            background: #218838;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        .log-entry.info {
+            color: #4fc3f7;
+        }
+        .log-entry.success {
+            color: #66bb6a;
+        }
+        .log-entry.error {
+            color: #ef5350;
+        }
+        .log-entry.warning {
+            color: #ffb74d;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.running {
+            background: #28a745;
+            color: white;
+        }
+        .status.stopped {
+            background: #dc3545;
+            color: white;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .info-box strong {
+            color: #1976d2;
+        }
+        .counter {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Analytics SDK - Non-Blocking Test</h1>
+        <p class="subtitle">Verify that the SDK never blocks the client app, even with errors</p>
+
+        <div class="info-box">
+            <strong>🎯 Test Objective:</strong> This page demonstrates that the Analytics SDK is completely non-blocking. 
+            Even if the server is down, network fails, or SDK throws errors, the client app continues working smoothly.
+        </div>
+
+        <!-- Test 1: UI Responsiveness -->
+        <div class="test-section">
+            <h2>Test 1: UI Responsiveness Counter</h2>
+            <p>Click "Start Counter" then trigger SDK events. The counter should never freeze.</p>
+            <button onclick="startCounter()">Start Counter</button>
+            <button onclick="stopCounter()" class="danger">Stop Counter</button>
+            <div class="counter" id="counter">0</div>
+        </div>
+
+        <!-- Test 2: SDK Operations -->
+        <div class="test-section">
+            <h2>Test 2: SDK Event Tracking (Non-Blocking)</h2>
+            <p>These operations are fire-and-forget and won't block the UI:</p>
+            <button onclick="trackEvent()">Track Event</button>
+            <button onclick="trackPageView()">Track Page View</button>
+            <button onclick="identifyUser()">Identify User</button>
+            <button onclick="batchEvents()">Send 50 Events</button>
+            <button onclick="testFlush()" class="success">Flush Events</button>
+        </div>
+
+        <!-- Test 3: Error Scenarios -->
+        <div class="test-section">
+            <h2>Test 3: Error Scenarios (Should NOT Block)</h2>
+            <p>These will fail gracefully without blocking the UI:</p>
+            <button onclick="trackWithBadData()" class="danger">Track with Bad Data</button>
+            <button onclick="simulateNetworkError()" class="danger">Simulate Network Error</button>
+            <button onclick="triggerSDKError()" class="danger">Trigger SDK Error</button>
+        </div>
+
+        <!-- Test 4: Performance Test -->
+        <div class="test-section">
+            <h2>Test 4: Performance Stress Test</h2>
+            <p>Send many events rapidly - UI should remain responsive:</p>
+            <button onclick="stressTest()">Send 100 Events</button>
+            <button onclick="extremeStressTest()" class="danger">Send 1000 Events</button>
+        </div>
+
+        <!-- Event Log -->
+        <div class="test-section">
+            <h2>Event Log</h2>
+            <button onclick="clearLog()" class="danger">Clear Log</button>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the SDK
+        import { BrowserAnalyticsSDK } from './BrowserSDK.js';
+
+        // Initialize SDK with intentionally bad endpoint to test error handling
+        window.analytics = new BrowserAnalyticsSDK({
+            apiKey: 'test-key-12345',
+            endpoint: 'http://localhost:9999', // Non-existent server
+            debug: true,
+            batchSize: 10,
+            batchInterval: 3000,
+            maxRetries: 2,
+            enableAutoTracking: true,
+            enableOfflineQueue: true,
+            transport: 'fetch'
+        });
+
+        // Counter for UI responsiveness test
+        let counterInterval;
+        let counterValue = 0;
+
+        window.startCounter = () => {
+            stopCounter();
+            counterValue = 0;
+            document.getElementById('counter').textContent = counterValue;
+            counterInterval = setInterval(() => {
+                counterValue++;
+                document.getElementById('counter').textContent = counterValue;
+                log(`Counter: ${counterValue}`, 'info');
+            }, 100);
+            log('Counter started - Should continue even during SDK operations', 'success');
+        };
+
+        window.stopCounter = () => {
+            if (counterInterval) {
+                clearInterval(counterInterval);
+                counterInterval = null;
+                log('Counter stopped', 'warning');
+            }
+        };
+
+        // SDK Test Functions
+        window.trackEvent = () => {
+            log('Tracking custom event...', 'info');
+            analytics.track('button_click', {
+                button: 'test_button',
+                timestamp: Date.now()
+            });
+            log('✓ track() returned immediately (non-blocking)', 'success');
+        };
+
+        window.trackPageView = () => {
+            log('Tracking page view...', 'info');
+            analytics.page('Test Page', 'Testing');
+            log('✓ page() returned immediately (non-blocking)', 'success');
+        };
+
+        window.identifyUser = () => {
+            log('Identifying user...', 'info');
+            analytics.identify('user-' + Date.now(), {
+                name: 'Test User',
+                email: 'test@example.com'
+            });
+            log('✓ identify() returned immediately (non-blocking)', 'success');
+        };
+
+        window.batchEvents = () => {
+            log('Sending 50 events...', 'info');
+            const startTime = performance.now();
+            for (let i = 0; i < 50; i++) {
+                analytics.track('batch_event', { index: i });
+            }
+            const endTime = performance.now();
+            log(`✓ Sent 50 events in ${(endTime - startTime).toFixed(2)}ms (non-blocking)`, 'success');
+        };
+
+        window.testFlush = () => {
+            log('Flushing events...', 'info');
+            analytics.flush();
+            log('✓ flush() returned immediately (fire-and-forget)', 'success');
+        };
+
+        // Error Scenario Tests
+        window.trackWithBadData = () => {
+            log('Tracking event with bad data...', 'warning');
+            try {
+                // This should fail gracefully
+                analytics.track('bad_event', {
+                    circular: window, // Circular reference
+                    func: () => {} // Function
+                });
+                log('✓ SDK handled bad data gracefully (no error thrown)', 'success');
+            } catch (e) {
+                log(`✗ SDK threw error: ${e.message}`, 'error');
+            }
+        };
+
+        window.simulateNetworkError = () => {
+            log('Events will queue and fail silently (server is offline)', 'warning');
+            for (let i = 0; i < 5; i++) {
+                analytics.track('network_error_test', { index: i });
+            }
+            log('✓ Events queued, UI not blocked despite network failure', 'success');
+        };
+
+        window.triggerSDKError = () => {
+            log('Attempting to trigger SDK error...', 'warning');
+            try {
+                // Try to break the SDK
+                analytics.track(null, undefined);
+                log('✓ SDK handled invalid input gracefully', 'success');
+            } catch (e) {
+                log(`✗ SDK threw error: ${e.message}`, 'error');
+            }
+        };
+
+        // Performance Tests
+        window.stressTest = () => {
+            log('Starting stress test (100 events)...', 'info');
+            const startTime = performance.now();
+            for (let i = 0; i < 100; i++) {
+                analytics.track('stress_test', {
+                    index: i,
+                    timestamp: Date.now(),
+                    random: Math.random()
+                });
+            }
+            const endTime = performance.now();
+            log(`✓ Sent 100 events in ${(endTime - startTime).toFixed(2)}ms`, 'success');
+            log('UI should still be responsive!', 'success');
+        };
+
+        window.extremeStressTest = () => {
+            log('Starting EXTREME stress test (1000 events)...', 'warning');
+            const startTime = performance.now();
+            for (let i = 0; i < 1000; i++) {
+                analytics.track('extreme_stress', {
+                    index: i,
+                    data: 'x'.repeat(100) // Some payload
+                });
+            }
+            const endTime = performance.now();
+            log(`✓ Sent 1000 events in ${(endTime - startTime).toFixed(2)}ms`, 'success');
+            log('UI should STILL be responsive!', 'success');
+        };
+
+        // Logging
+        window.log = (message, type = 'info') => {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+
+        window.clearLog = () => {
+            document.getElementById('log').innerHTML = '';
+            log('Log cleared', 'info');
+        };
+
+        // Initial log
+        log('Analytics SDK initialized', 'success');
+        log('Server endpoint: http://localhost:9999 (intentionally unreachable)', 'warning');
+        log('All SDK operations are non-blocking and will fail silently', 'info');
+        log('Start the counter and try triggering events - UI should never freeze!', 'info');
+    </script>
+</body>
+</html>
