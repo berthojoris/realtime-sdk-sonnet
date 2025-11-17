@@ -1,0 +1,60 @@
+{
+  "name": "@realtime-analytics/sdk",
+  "version": "1.0.0",
+  "description": "Real-time analytics SDK for Node.js with multi-database support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "real-time",
+    "events",
+    "mongodb",
+    "mysql",
+    "postgresql",
+    "sqlite",
+    "metrics"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "eventemitter3": "^5.0.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "typescript": "^5.3.2"
+  },
+  "peerDependencies": {
+    "mysql2": "^3.6.5",
+    "pg": "^8.11.3",
+    "mongodb": "^6.3.0",
+    "better-sqlite3": "^9.2.2"
+  },
+  "peerDependenciesMeta": {
+    "mysql2": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "mongodb": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    }
+  }
+}

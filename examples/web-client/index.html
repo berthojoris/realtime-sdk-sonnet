@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics SDK - Web Client Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #545b62;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 10px 0;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        #log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            padding-left: 10px;
+        }
+        .log-error {
+            border-left-color: #dc3545;
+            color: #ff6b6b;
+        }
+        .log-success {
+            border-left-color: #28a745;
+            color: #51cf66;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Real-time Analytics SDK - Web Client Demo</h1>
+        
+        <div class="info-box">
+            <strong>Session ID:</strong> <span id="sessionId">Loading...</span><br>
+            <strong>Anonymous ID:</strong> <span id="anonymousId">Loading...</span><br>
+            <strong>User ID:</strong> <span id="userId">Not identified</span>
+        </div>
+
+        <h2>📊 Current Session Stats</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Events Tracked</div>
+                <div class="stat-value" id="eventCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Page Views</div>
+                <div class="stat-value" id="pageViewCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Clicks</div>
+                <div class="stat-value" id="clickCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Queue Size</div>
+                <div class="stat-value" id="queueSize">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🎯 Track Events</h2>
+        
+        <div>
+            <button onclick="trackPageView()" data-track="page-view-btn">Track Page View</button>
+            <button onclick="trackCustomEvent()" data-track="custom-event-btn">Track Custom Event</button>
+            <button onclick="trackError()" class="secondary" data-track="error-btn">Simulate Error</button>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3>User Identification</h3>
+            <input type="text" id="userIdInput" placeholder="Enter User ID" value="user-12345">
+            <button onclick="identifyUser()" data-track="identify-btn">Identify User</button>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3>Custom Properties</h3>
+            <input type="text" id="eventType" placeholder="Event Type" value="product_view">
+            <input type="text" id="propertyKey" placeholder="Property Key" value="product_id">
+            <input type="text" id="propertyValue" placeholder="Property Value" value="prod-789">
+            <button onclick="trackWithProperties()" data-track="custom-props-btn">Track with Properties</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📝 Event Log</h2>
+        <div id="log"></div>
+    </div>
+
+    <div class="container">
+        <h2>💡 Code Example</h2>
+        <pre><code>// Initialize the SDK
+const analytics = new BrowserAnalyticsSDK({
+  apiKey: 'your-api-key',
+  endpoint: 'http://localhost:3000',
+  debug: true,
+  batchSize: 5,
+  batchInterval: 3000,
+  enableAutoTracking: true
+});
+
+// Track a page view
+analytics.page('Home', 'Landing', {
+  campaign: 'summer-sale'
+});
+
+// Track custom events
+analytics.track('purchase', {
+  orderId: 'order-123',
+  total: 99.99,
+  items: 3
+});
+
+// Identify users
+analytics.identify('user-123', {
+  name: 'John Doe',
+  email: 'john@example.com',
+  plan: 'premium'
+});
+</code></pre>
+    </div>
+
+    <!-- Include the Browser SDK -->
+    <script src="../../dist/client/BrowserSDK.js"></script>
+    
+    <script>
+        // Analytics instance
+        let analytics;
+        let eventCount = 0;
+        let pageViewCount = 0;
+        let clickCount = 0;
+
+        // Initialize SDK
+        function initAnalytics() {
+            try {
+                analytics = new BrowserAnalyticsSDK({
+                    apiKey: 'demo-api-key',
+                    endpoint: 'http://localhost:3000',
+                    debug: true,
+                    batchSize: 5,
+                    batchInterval: 3000,
+                    enableAutoTracking: true,
+                    enableOfflineQueue: true
+                });
+
+                // Display session info
+                document.getElementById('sessionId').textContent = analytics.getSessionId();
+                document.getElementById('anonymousId').textContent = analytics.getAnonymousId();
+
+                logEvent('✅ SDK initialized successfully', 'success');
+                
+                // Track initial page view
+                trackPageView();
+            } catch (error) {
+                logEvent('❌ Failed to initialize SDK: ' + error.message, 'error');
+            }
+        }
+
+        // Track page view
+        function trackPageView() {
+            analytics.page('Demo Page', 'Example', {
+                section: 'main',
+                timestamp: new Date().toISOString()
+            });
+            
+            pageViewCount++;
+            eventCount++;
+            updateStats();
+            logEvent('📄 Page view tracked');
+        }
+
+        // Track custom event
+        function trackCustomEvent() {
+            analytics.track('custom_event', {
+                action: 'button_click',
+                label: 'Demo Button',
+                value: Math.floor(Math.random() * 100)
+            });
+            
+            eventCount++;
+            updateStats();
+            logEvent('🎯 Custom event tracked');
+        }
+
+        // Track error
+        function trackError() {
+            analytics.track('error', {
+                message: 'This is a test error',
+                severity: 'warning',
+                timestamp: Date.now()
+            });
+            
+            eventCount++;
+            updateStats();
+            logEvent('⚠️ Error event tracked');
+        }
+
+        // Identify user
+        function identifyUser() {
+            const userId = document.getElementById('userIdInput').value;
+            
+            analytics.identify(userId, {
+                name: 'Demo User',
+                email: 'demo@example.com',
+                plan: 'premium',
+                signupDate: new Date().toISOString()
+            });
+            
+            document.getElementById('userId').textContent = userId;
+            eventCount++;
+            updateStats();
+            logEvent('👤 User identified: ' + userId, 'success');
+        }
+
+        // Track with custom properties
+        function trackWithProperties() {
+            const eventType = document.getElementById('eventType').value;
+            const key = document.getElementById('propertyKey').value;
+            const value = document.getElementById('propertyValue').value;
+            
+            const properties = {};
+            properties[key] = value;
+            
+            analytics.track(eventType, properties);
+            
+            eventCount++;
+            updateStats();
+            logEvent(`📊 ${eventType} tracked with ${key}: ${value}`);
+        }
+
+        // Update stats display
+        function updateStats() {
+            document.getElementById('eventCount').textContent = eventCount;
+            document.getElementById('pageViewCount').textContent = pageViewCount;
+            document.getElementById('clickCount').textContent = clickCount;
+        }
+
+        // Log event to console
+        function logEvent(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            if (type === 'error') {
+                entry.classList.add('log-error');
+            } else if (type === 'success') {
+                entry.classList.add('log-success');
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            logDiv.insertBefore(entry, logDiv.firstChild);
+            
+            // Limit log entries
+            if (logDiv.children.length > 50) {
+                logDiv.removeChild(logDiv.lastChild);
+            }
+        }
+
+        // Track auto-detected clicks
+        document.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.hasAttribute('data-track')) {
+                clickCount++;
+                eventCount++;
+                updateStats();
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            initAnalytics();
+        });
+
+        // Flush events before page unload
+        window.addEventListener('beforeunload', () => {
+            if (analytics) {
+                analytics.flush();
+            }
+        });
+    </script>
+</body>
+</html>
