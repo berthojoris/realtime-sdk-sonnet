@@ -3,7 +3,7 @@
  * Adapter for storing analytics data in SQLite
  */
 
-import { BaseAdapter } from './BaseAdapter';
+import { BaseAdapter } from "./BaseAdapter";
 import {
   AnalyticsEvent,
   Session,
@@ -11,8 +11,8 @@ import {
   EventFilter,
   EventStats,
   DatabaseConfig,
-  DatabaseError
-} from '../types';
+  DatabaseError,
+} from "../types";
 
 export class SQLiteAdapter extends BaseAdapter {
   private db: any = null;
@@ -25,20 +25,20 @@ export class SQLiteAdapter extends BaseAdapter {
 
   async connect(): Promise<void> {
     try {
-      const Database = (await import('better-sqlite3')).default;
+      const Database = (await import("better-sqlite3")).default;
 
-      const filename = this.config.connection?.filename || './analytics.db';
+      const filename = this.config.connection?.filename || "./analytics.db";
       this.db = new Database(filename, this.config.options);
 
       // Enable WAL mode for better concurrency
-      this.db.pragma('journal_mode = WAL');
+      this.db.pragma("journal_mode = WAL");
 
       // Create tables if they don't exist
       this.createTables();
 
       this.connected = true;
     } catch (error) {
-      this.handleError(error, 'SQLite connection');
+      this.handleError(error, "SQLite connection");
     }
   }
 
@@ -50,7 +50,7 @@ export class SQLiteAdapter extends BaseAdapter {
         this.db = null;
       }
     } catch (error) {
-      this.handleError(error, 'SQLite disconnection');
+      this.handleError(error, "SQLite disconnection");
     }
   }
 
@@ -71,17 +71,17 @@ export class SQLiteAdapter extends BaseAdapter {
         event.anonymousId || null,
         JSON.stringify(event.properties),
         JSON.stringify(event.context),
-        event.metadata ? JSON.stringify(event.metadata) : null
+        event.metadata ? JSON.stringify(event.metadata) : null,
       );
     } catch (error) {
-      this.handleError(error, 'Save event');
+      this.handleError(error, "Save event");
     }
   }
 
   async saveEvents(events: AnalyticsEvent[]): Promise<void> {
     if (events.length === 0) return;
 
-    events.forEach(event => this.validateEvent(event));
+    events.forEach((event) => this.validateEvent(event));
 
     try {
       const stmt = this.db.prepare(`
@@ -100,14 +100,14 @@ export class SQLiteAdapter extends BaseAdapter {
             event.anonymousId || null,
             JSON.stringify(event.properties),
             JSON.stringify(event.context),
-            event.metadata ? JSON.stringify(event.metadata) : null
+            event.metadata ? JSON.stringify(event.metadata) : null,
           );
         }
       });
 
       insertMany(events);
     } catch (error) {
-      this.handleError(error, 'Save events batch');
+      this.handleError(error, "Save events batch");
     }
   }
 
@@ -119,7 +119,7 @@ export class SQLiteAdapter extends BaseAdapter {
 
       return rows.map(this.mapRowToEvent);
     } catch (error) {
-      this.handleError(error, 'Get events');
+      this.handleError(error, "Get events");
     }
   }
 
@@ -139,32 +139,35 @@ export class SQLiteAdapter extends BaseAdapter {
         session.lastActivityTime,
         session.endTime || null,
         session.eventCount,
-        session.metadata ? JSON.stringify(session.metadata) : null
+        session.metadata ? JSON.stringify(session.metadata) : null,
       );
     } catch (error) {
-      this.handleError(error, 'Save session');
+      this.handleError(error, "Save session");
     }
   }
 
   async getSession(sessionId: string): Promise<Session | null> {
     try {
-      const stmt = this.db.prepare('SELECT * FROM sessions WHERE id = ?');
+      const stmt = this.db.prepare("SELECT * FROM sessions WHERE id = ?");
       const row = stmt.get(sessionId);
 
       return row ? this.mapRowToSession(row) : null;
     } catch (error) {
-      this.handleError(error, 'Get session');
+      this.handleError(error, "Get session");
     }
   }
 
-  async updateSession(sessionId: string, updates: Partial<Session>): Promise<void> {
+  async updateSession(
+    sessionId: string,
+    updates: Partial<Session>,
+  ): Promise<void> {
     try {
       const fields: string[] = [];
       const values: any[] = [];
 
       Object.entries(updates).forEach(([key, value]) => {
         fields.push(`${key} = ?`);
-        if (typeof value === 'object' && value !== null) {
+        if (typeof value === "object" && value !== null) {
           values.push(JSON.stringify(value));
         } else {
           values.push(value);
@@ -174,12 +177,12 @@ export class SQLiteAdapter extends BaseAdapter {
       if (fields.length === 0) return;
 
       values.push(sessionId);
-      const query = `UPDATE sessions SET ${fields.join(', ')} WHERE id = ?`;
+      const query = `UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`;
 
       const stmt = this.db.prepare(query);
       stmt.run(...values);
     } catch (error) {
-      this.handleError(error, 'Update session');
+      this.handleError(error, "Update session");
     }
   }
 
@@ -197,32 +200,34 @@ export class SQLiteAdapter extends BaseAdapter {
         user.traits ? JSON.stringify(user.traits) : null,
         user.consent ? JSON.stringify(user.consent) : null,
         user.createdAt,
-        user.updatedAt
+        user.updatedAt,
       );
     } catch (error) {
-      this.handleError(error, 'Save user');
+      this.handleError(error, "Save user");
     }
   }
 
   async getUser(userId: string): Promise<User | null> {
     try {
-      const stmt = this.db.prepare('SELECT * FROM users WHERE id = ? OR anonymousId = ? LIMIT 1');
+      const stmt = this.db.prepare(
+        "SELECT * FROM users WHERE id = ? OR anonymousId = ? LIMIT 1",
+      );
       const row = stmt.get(userId, userId);
 
       return row ? this.mapRowToUser(row) : null;
     } catch (error) {
-      this.handleError(error, 'Get user');
+      this.handleError(error, "Get user");
     }
   }
 
   async deleteOldEvents(olderThanTimestamp: number): Promise<number> {
     try {
-      const stmt = this.db.prepare('DELETE FROM events WHERE timestamp < ?');
+      const stmt = this.db.prepare("DELETE FROM events WHERE timestamp < ?");
       const result = stmt.run(olderThanTimestamp);
 
       return result.changes || 0;
     } catch (error) {
-      this.handleError(error, 'Delete old events');
+      this.handleError(error, "Delete old events");
     }
   }
 
@@ -230,19 +235,29 @@ export class SQLiteAdapter extends BaseAdapter {
     try {
       const { whereClause, params } = this.buildWhereClause(filter);
 
-      const totalStmt = this.db.prepare(`SELECT COUNT(*) as total FROM events ${whereClause}`);
+      const totalStmt = this.db.prepare(
+        `SELECT COUNT(*) as total FROM events ${whereClause}`,
+      );
       const totalResult = totalStmt.get(...params);
 
-      const typeStmt = this.db.prepare(`SELECT type, COUNT(*) as count FROM events ${whereClause} GROUP BY type`);
+      const typeStmt = this.db.prepare(
+        `SELECT type, COUNT(*) as count FROM events ${whereClause} GROUP BY type`,
+      );
       const typeResult = typeStmt.all(...params);
 
-      const userStmt = this.db.prepare(`SELECT COUNT(DISTINCT userId) as count FROM events ${whereClause} WHERE userId IS NOT NULL`);
+      const userStmt = this.db.prepare(
+        `SELECT COUNT(DISTINCT userId) as count FROM events ${whereClause} WHERE userId IS NOT NULL`,
+      );
       const userResult = userStmt.get(...params);
 
-      const sessionStmt = this.db.prepare(`SELECT COUNT(DISTINCT sessionId) as count FROM events ${whereClause}`);
+      const sessionStmt = this.db.prepare(
+        `SELECT COUNT(DISTINCT sessionId) as count FROM events ${whereClause}`,
+      );
       const sessionResult = sessionStmt.get(...params);
 
-      const timeStmt = this.db.prepare(`SELECT MIN(timestamp) as start, MAX(timestamp) as end FROM events ${whereClause}`);
+      const timeStmt = this.db.prepare(
+        `SELECT MIN(timestamp) as start, MAX(timestamp) as end FROM events ${whereClause}`,
+      );
       const timeResult = timeStmt.get(...params);
 
       const eventsByType: Record<string, number> = {};
@@ -257,11 +272,11 @@ export class SQLiteAdapter extends BaseAdapter {
         uniqueSessions: sessionResult.count,
         timeRange: {
           start: timeResult.start || 0,
-          end: timeResult.end || 0
-        }
+          end: timeResult.end || 0,
+        },
       };
     } catch (error) {
-      this.handleError(error, 'Get event stats');
+      this.handleError(error, "Get event stats");
     }
   }
 
@@ -312,51 +327,95 @@ export class SQLiteAdapter extends BaseAdapter {
     `);
   }
 
-  private buildSelectQuery(filter: EventFilter): { query: string; params: any[] } {
+  private buildSelectQuery(filter: EventFilter): {
+    query: string;
+    params: any[];
+  } {
     const { whereClause, params } = this.buildWhereClause(filter);
-    
+
     let query = `SELECT * FROM events ${whereClause} ORDER BY timestamp DESC`;
 
-    if (filter.limit) {
-      query += ` LIMIT ${filter.limit}`;
-      if (filter.offset) {
-        query += ` OFFSET ${filter.offset}`;
+    // Add LIMIT and OFFSET with validation to prevent SQL injection
+    if (
+      filter.limit &&
+      typeof filter.limit === "number" &&
+      filter.limit > 0 &&
+      filter.limit <= 10000
+    ) {
+      query += ` LIMIT ?`;
+      params.push(filter.limit);
+
+      if (
+        filter.offset &&
+        typeof filter.offset === "number" &&
+        filter.offset >= 0
+      ) {
+        query += ` OFFSET ?`;
+        params.push(filter.offset);
       }
+    } else if (filter.limit) {
+      // Add default limit of 100 if limit is provided but invalid
+      query += " LIMIT ?";
+      params.push(100);
     }
 
     return { query, params };
   }
 
-  private buildWhereClause(filter: EventFilter): { whereClause: string; params: any[] } {
+  private buildWhereClause(filter: EventFilter): {
+    whereClause: string;
+    params: any[];
+  } {
     const conditions: string[] = [];
     const params: any[] = [];
 
-    if (filter.startTime) {
-      conditions.push('timestamp >= ?');
+    if (
+      filter.startTime &&
+      typeof filter.startTime === "number" &&
+      filter.startTime > 0
+    ) {
+      conditions.push("timestamp >= ?");
       params.push(filter.startTime);
     }
 
-    if (filter.endTime) {
-      conditions.push('timestamp <= ?');
+    if (
+      filter.endTime &&
+      typeof filter.endTime === "number" &&
+      filter.endTime > 0
+    ) {
+      conditions.push("timestamp <= ?");
       params.push(filter.endTime);
     }
 
-    if (filter.eventType) {
-      conditions.push('type = ?');
+    if (
+      filter.eventType &&
+      typeof filter.eventType === "string" &&
+      filter.eventType.length <= 100
+    ) {
+      conditions.push("type = ?");
       params.push(filter.eventType);
     }
 
-    if (filter.userId) {
-      conditions.push('userId = ?');
+    if (
+      filter.userId &&
+      typeof filter.userId === "string" &&
+      /^[a-zA-Z0-9_-]{1,50}$/.test(filter.userId)
+    ) {
+      conditions.push("userId = ?");
       params.push(filter.userId);
     }
 
-    if (filter.sessionId) {
-      conditions.push('sessionId = ?');
+    if (
+      filter.sessionId &&
+      typeof filter.sessionId === "string" &&
+      /^[a-zA-Z0-9_-]{1,50}$/.test(filter.sessionId)
+    ) {
+      conditions.push("sessionId = ?");
       params.push(filter.sessionId);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     return { whereClause, params };
   }
@@ -369,9 +428,9 @@ export class SQLiteAdapter extends BaseAdapter {
       sessionId: row.sessionId,
       userId: row.userId,
       anonymousId: row.anonymousId,
-      properties: JSON.parse(row.properties || '{}'),
-      context: JSON.parse(row.context || '{}'),
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      properties: JSON.parse(row.properties || "{}"),
+      context: JSON.parse(row.context || "{}"),
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     };
   }
 
@@ -384,7 +443,7 @@ export class SQLiteAdapter extends BaseAdapter {
       lastActivityTime: row.lastActivityTime,
       endTime: row.endTime,
       eventCount: row.eventCount,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     };
   }
 
@@ -395,7 +454,7 @@ export class SQLiteAdapter extends BaseAdapter {
       traits: row.traits ? JSON.parse(row.traits) : undefined,
       consent: row.consent ? JSON.parse(row.consent) : undefined,
       createdAt: row.createdAt,
-      updatedAt: row.updatedAt
+      updatedAt: row.updatedAt,
     };
   }
 }

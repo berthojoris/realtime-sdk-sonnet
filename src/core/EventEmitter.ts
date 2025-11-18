@@ -3,11 +3,11 @@
  * Handles real-time event streaming and WebSocket communication
  */
 
-import EventEmitter from 'eventemitter3';
-import { AnalyticsEvent, StreamEvent, EventStats, Session } from '../types';
+import EventEmitter from "eventemitter3";
+import { AnalyticsEvent, StreamEvent, EventStats, Session } from "../types";
 
 export interface StreamMessage {
-  type: 'event' | 'stats' | 'session' | 'connection' | 'error';
+  type: "event" | "stats" | "session" | "connection" | "error";
   data: any;
   timestamp: number;
 }
@@ -15,9 +15,43 @@ export interface StreamMessage {
 export class RealtimeEventEmitter extends EventEmitter {
   private subscribers: Set<WebSocket | any> = new Set();
   private isEnabled: boolean = false;
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor() {
     super();
+
+    // Set up periodic cleanup to remove stale connections
+    this.startPeriodicCleanup();
+  }
+
+  /**
+   * Start periodic cleanup to remove stale WebSocket connections
+   */
+  private startPeriodicCleanup(): void {
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleSubscribers();
+    }, 30000); // Check every 30 seconds
+  }
+
+  /**
+   * Clean up stale connections
+   */
+  private cleanupStaleSubscribers(): void {
+    this.subscribers.forEach((subscriber) => {
+      try {
+        // Check if WebSocket is closed
+        if (
+          subscriber.readyState !== undefined &&
+          subscriber.readyState !== 1
+        ) {
+          this.unsubscribe(subscriber);
+        }
+        // For custom subscribers with onMessage, we can't check status, so skip
+      } catch (error) {
+        // If there's an error checking the subscriber, remove it
+        this.unsubscribe(subscriber);
+      }
+    });
   }
 
   /**
@@ -46,14 +80,14 @@ export class RealtimeEventEmitter extends EventEmitter {
    */
   subscribe(subscriber: any): void {
     if (!this.isEnabled) return;
-    
+
     this.subscribers.add(subscriber);
-    
+
     // Send connection confirmation
     this.sendToSubscriber(subscriber, {
-      type: 'connection',
-      data: { status: 'connected', timestamp: Date.now() },
-      timestamp: Date.now()
+      type: "connection",
+      data: { status: "connected", timestamp: Date.now() },
+      timestamp: Date.now(),
     });
   }
 
@@ -71,13 +105,13 @@ export class RealtimeEventEmitter extends EventEmitter {
     if (!this.isEnabled) return;
 
     const message: StreamMessage = {
-      type: 'event',
+      type: "event",
       data: event,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.broadcast(message);
-    this.emit('event', event);
+    this.emit("event", event);
   }
 
   /**
@@ -87,13 +121,13 @@ export class RealtimeEventEmitter extends EventEmitter {
     if (!this.isEnabled) return;
 
     const message: StreamMessage = {
-      type: 'stats',
+      type: "stats",
       data: stats,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.broadcast(message);
-    this.emit('stats', stats);
+    this.emit("stats", stats);
   }
 
   /**
@@ -103,13 +137,13 @@ export class RealtimeEventEmitter extends EventEmitter {
     if (!this.isEnabled) return;
 
     const message: StreamMessage = {
-      type: 'session',
+      type: "session",
       data: session,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.broadcast(message);
-    this.emit('session', session);
+    this.emit("session", session);
   }
 
   /**
@@ -119,17 +153,17 @@ export class RealtimeEventEmitter extends EventEmitter {
     if (!this.isEnabled) return;
 
     const message: StreamMessage = {
-      type: 'error',
+      type: "error",
       data: {
         message: error.message,
         name: error.name,
-        stack: error.stack
+        stack: error.stack,
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.broadcast(message);
-    this.emit('error', error);
+    this.emit("error", error);
   }
 
   /**
@@ -138,7 +172,7 @@ export class RealtimeEventEmitter extends EventEmitter {
   private broadcast(message: StreamMessage): void {
     const messageStr = JSON.stringify(message);
 
-    this.subscribers.forEach(subscriber => {
+    this.subscribers.forEach((subscriber) => {
       this.sendToSubscriber(subscriber, message);
     });
   }
@@ -151,17 +185,21 @@ export class RealtimeEventEmitter extends EventEmitter {
       const messageStr = JSON.stringify(message);
 
       // Handle WebSocket
-      if (subscriber.send && typeof subscriber.send === 'function') {
-        if (subscriber.readyState === 1) { // WebSocket.OPEN
+      if (subscriber.send && typeof subscriber.send === "function") {
+        if (subscriber.readyState === 1) {
+          // WebSocket.OPEN
           subscriber.send(messageStr);
         }
       }
       // Handle custom subscriber with onMessage callback
-      else if (subscriber.onMessage && typeof subscriber.onMessage === 'function') {
+      else if (
+        subscriber.onMessage &&
+        typeof subscriber.onMessage === "function"
+      ) {
         subscriber.onMessage(message);
       }
     } catch (error) {
-      console.error('Error sending to subscriber:', error);
+      console.error("Error sending to subscriber:", error);
       this.unsubscribe(subscriber);
     }
   }
@@ -178,5 +216,11 @@ export class RealtimeEventEmitter extends EventEmitter {
    */
   clearSubscribers(): void {
     this.subscribers.clear();
+
+    // Clear cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
   }
 }

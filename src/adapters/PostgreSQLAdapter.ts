@@ -3,7 +3,7 @@
  * Adapter for storing analytics data in PostgreSQL
  */
 
-import { BaseAdapter } from './BaseAdapter';
+import { BaseAdapter } from "./BaseAdapter";
 import {
   AnalyticsEvent,
   Session,
@@ -11,8 +11,8 @@ import {
   EventFilter,
   EventStats,
   DatabaseConfig,
-  DatabaseError
-} from '../types';
+  DatabaseError,
+} from "../types";
 
 export class PostgreSQLAdapter extends BaseAdapter {
   private pool: any = null;
@@ -25,17 +25,17 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
   async connect(): Promise<void> {
     try {
-      const { Pool } = await import('pg');
+      const { Pool } = await import("pg");
 
       this.pool = new Pool({
-        host: this.config.connection?.host || 'localhost',
+        host: this.config.connection?.host || "localhost",
         port: this.config.connection?.port || 5432,
         user: this.config.connection?.username,
         password: this.config.connection?.password,
-        database: this.config.connection?.database || 'analytics',
+        database: this.config.connection?.database || "analytics",
         min: this.config.pool?.min || 2,
         max: this.config.pool?.max || 10,
-        ...this.config.options
+        ...this.config.options,
       });
 
       // Create tables if they don't exist
@@ -43,7 +43,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
       this.connected = true;
     } catch (error) {
-      this.handleError(error, 'PostgreSQL connection');
+      this.handleError(error, "PostgreSQL connection");
     }
   }
 
@@ -55,7 +55,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
         this.pool = null;
       }
     } catch (error) {
-      this.handleError(error, 'PostgreSQL disconnection');
+      this.handleError(error, "PostgreSQL disconnection");
     }
   }
 
@@ -76,23 +76,23 @@ export class PostgreSQLAdapter extends BaseAdapter {
         event.anonymousId || null,
         JSON.stringify(event.properties),
         JSON.stringify(event.context),
-        event.metadata ? JSON.stringify(event.metadata) : null
+        event.metadata ? JSON.stringify(event.metadata) : null,
       ]);
     } catch (error) {
-      this.handleError(error, 'Save event');
+      this.handleError(error, "Save event");
     }
   }
 
   async saveEvents(events: AnalyticsEvent[]): Promise<void> {
     if (events.length === 0) return;
 
-    events.forEach(event => this.validateEvent(event));
+    events.forEach((event) => this.validateEvent(event));
 
     try {
       const client = await this.pool.connect();
-      
+
       try {
-        await client.query('BEGIN');
+        await client.query("BEGIN");
 
         const query = `
           INSERT INTO events (id, type, timestamp, session_id, user_id, anonymous_id, properties, context, metadata)
@@ -109,19 +109,19 @@ export class PostgreSQLAdapter extends BaseAdapter {
             event.anonymousId || null,
             JSON.stringify(event.properties),
             JSON.stringify(event.context),
-            event.metadata ? JSON.stringify(event.metadata) : null
+            event.metadata ? JSON.stringify(event.metadata) : null,
           ]);
         }
 
-        await client.query('COMMIT');
+        await client.query("COMMIT");
       } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         throw error;
       } finally {
         client.release();
       }
     } catch (error) {
-      this.handleError(error, 'Save events batch');
+      this.handleError(error, "Save events batch");
     }
   }
 
@@ -132,7 +132,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
       return result.rows.map(this.mapRowToEvent);
     } catch (error) {
-      this.handleError(error, 'Get events');
+      this.handleError(error, "Get events");
     }
   }
 
@@ -157,27 +157,30 @@ export class PostgreSQLAdapter extends BaseAdapter {
         session.lastActivityTime,
         session.endTime || null,
         session.eventCount,
-        session.metadata ? JSON.stringify(session.metadata) : null
+        session.metadata ? JSON.stringify(session.metadata) : null,
       ]);
     } catch (error) {
-      this.handleError(error, 'Save session');
+      this.handleError(error, "Save session");
     }
   }
 
   async getSession(sessionId: string): Promise<Session | null> {
     try {
-      const query = 'SELECT * FROM sessions WHERE id = $1';
+      const query = "SELECT * FROM sessions WHERE id = $1";
       const result = await this.pool.query(query, [sessionId]);
 
       if (result.rows.length === 0) return null;
 
       return this.mapRowToSession(result.rows[0]);
     } catch (error) {
-      this.handleError(error, 'Get session');
+      this.handleError(error, "Get session");
     }
   }
 
-  async updateSession(sessionId: string, updates: Partial<Session>): Promise<void> {
+  async updateSession(
+    sessionId: string,
+    updates: Partial<Session>,
+  ): Promise<void> {
     try {
       const fields: string[] = [];
       const values: any[] = [];
@@ -187,8 +190,8 @@ export class PostgreSQLAdapter extends BaseAdapter {
         const columnName = this.camelToSnake(key);
         fields.push(`${columnName} = $${paramCount}`);
         paramCount++;
-        
-        if (typeof value === 'object' && value !== null) {
+
+        if (typeof value === "object" && value !== null) {
           values.push(JSON.stringify(value));
         } else {
           values.push(value);
@@ -198,11 +201,11 @@ export class PostgreSQLAdapter extends BaseAdapter {
       if (fields.length === 0) return;
 
       values.push(sessionId);
-      const query = `UPDATE sessions SET ${fields.join(', ')} WHERE id = $${paramCount}`;
+      const query = `UPDATE sessions SET ${fields.join(", ")} WHERE id = $${paramCount}`;
 
       await this.pool.query(query, values);
     } catch (error) {
-      this.handleError(error, 'Update session');
+      this.handleError(error, "Update session");
     }
   }
 
@@ -224,34 +227,35 @@ export class PostgreSQLAdapter extends BaseAdapter {
         user.traits ? JSON.stringify(user.traits) : null,
         user.consent ? JSON.stringify(user.consent) : null,
         user.createdAt,
-        user.updatedAt
+        user.updatedAt,
       ]);
     } catch (error) {
-      this.handleError(error, 'Save user');
+      this.handleError(error, "Save user");
     }
   }
 
   async getUser(userId: string): Promise<User | null> {
     try {
-      const query = 'SELECT * FROM users WHERE id = $1 OR anonymous_id = $1 LIMIT 1';
+      const query =
+        "SELECT * FROM users WHERE id = $1 OR anonymous_id = $1 LIMIT 1";
       const result = await this.pool.query(query, [userId]);
 
       if (result.rows.length === 0) return null;
 
       return this.mapRowToUser(result.rows[0]);
     } catch (error) {
-      this.handleError(error, 'Get user');
+      this.handleError(error, "Get user");
     }
   }
 
   async deleteOldEvents(olderThanTimestamp: number): Promise<number> {
     try {
-      const query = 'DELETE FROM events WHERE timestamp < $1';
+      const query = "DELETE FROM events WHERE timestamp < $1";
       const result = await this.pool.query(query, [olderThanTimestamp]);
 
       return result.rowCount || 0;
     } catch (error) {
-      this.handleError(error, 'Delete old events');
+      this.handleError(error, "Delete old events");
     }
   }
 
@@ -261,27 +265,27 @@ export class PostgreSQLAdapter extends BaseAdapter {
 
       const totalResult = await this.pool.query(
         `SELECT COUNT(*) as total FROM events ${whereClause}`,
-        params
+        params,
       );
 
       const typeResult = await this.pool.query(
         `SELECT type, COUNT(*) as count FROM events ${whereClause} GROUP BY type`,
-        params
+        params,
       );
 
       const userResult = await this.pool.query(
         `SELECT COUNT(DISTINCT user_id) as count FROM events ${whereClause} WHERE user_id IS NOT NULL`,
-        params
+        params,
       );
 
       const sessionResult = await this.pool.query(
         `SELECT COUNT(DISTINCT session_id) as count FROM events ${whereClause}`,
-        params
+        params,
       );
 
       const timeResult = await this.pool.query(
         `SELECT MIN(timestamp) as start, MAX(timestamp) as end FROM events ${whereClause}`,
-        params
+        params,
       );
 
       const eventsByType: Record<string, number> = {};
@@ -296,11 +300,11 @@ export class PostgreSQLAdapter extends BaseAdapter {
         uniqueSessions: parseInt(sessionResult.rows[0].count),
         timeRange: {
           start: parseInt(timeResult.rows[0].start) || 0,
-          end: parseInt(timeResult.rows[0].end) || 0
-        }
+          end: parseInt(timeResult.rows[0].end) || 0,
+        },
       };
     } catch (error) {
-      this.handleError(error, 'Get event stats');
+      this.handleError(error, "Get event stats");
     }
   }
 
@@ -356,25 +360,45 @@ export class PostgreSQLAdapter extends BaseAdapter {
     await this.pool.query(createUsersTable);
   }
 
-  private buildSelectQuery(filter: EventFilter): { query: string; params: any[] } {
+  private buildSelectQuery(filter: EventFilter): {
+    query: string;
+    params: any[];
+  } {
     const { whereClause, params } = this.buildWhereClause(filter);
-    
+
     let query = `SELECT * FROM events ${whereClause} ORDER BY timestamp DESC`;
 
-    if (filter.limit) {
+    // Add LIMIT and OFFSET with validation to prevent SQL injection
+    if (
+      filter.limit &&
+      typeof filter.limit === "number" &&
+      filter.limit > 0 &&
+      filter.limit <= 10000
+    ) {
       params.push(filter.limit);
       query += ` LIMIT $${params.length}`;
-      
-      if (filter.offset) {
+
+      if (
+        filter.offset &&
+        typeof filter.offset === "number" &&
+        filter.offset >= 0
+      ) {
         params.push(filter.offset);
         query += ` OFFSET $${params.length}`;
       }
+    } else if (filter.limit) {
+      // Add default limit of 100 if limit is provided but invalid
+      params.push(100);
+      query += ` LIMIT $${params.length}`;
     }
 
     return { query, params };
   }
 
-  private buildWhereClause(filter: EventFilter): { whereClause: string; params: any[] } {
+  private buildWhereClause(filter: EventFilter): {
+    whereClause: string;
+    params: any[];
+  } {
     const conditions: string[] = [];
     const params: any[] = [];
 
@@ -403,13 +427,14 @@ export class PostgreSQLAdapter extends BaseAdapter {
       conditions.push(`session_id = $${params.length}`);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     return { whereClause, params };
   }
 
   private camelToSnake(str: string): string {
-    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
   }
 
   private snakeToCamel(str: string): string {
@@ -426,7 +451,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
       anonymousId: row.anonymous_id,
       properties: row.properties || {},
       context: row.context || {},
-      metadata: row.metadata || undefined
+      metadata: row.metadata || undefined,
     };
   }
 
@@ -439,7 +464,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
       lastActivityTime: parseInt(row.last_activity_time),
       endTime: row.end_time ? parseInt(row.end_time) : undefined,
       eventCount: parseInt(row.event_count),
-      metadata: row.metadata || undefined
+      metadata: row.metadata || undefined,
     };
   }
 
@@ -450,7 +475,7 @@ export class PostgreSQLAdapter extends BaseAdapter {
       traits: row.traits || undefined,
       consent: row.consent || undefined,
       createdAt: parseInt(row.created_at),
-      updatedAt: parseInt(row.updated_at)
+      updatedAt: parseInt(row.updated_at),
     };
   }
 }

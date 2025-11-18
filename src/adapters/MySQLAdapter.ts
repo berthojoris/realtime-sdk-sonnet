@@ -3,7 +3,7 @@
  * Adapter for storing analytics data in MySQL
  */
 
-import { BaseAdapter } from './BaseAdapter';
+import { BaseAdapter } from "./BaseAdapter";
 import {
   AnalyticsEvent,
   Session,
@@ -11,8 +11,8 @@ import {
   EventFilter,
   EventStats,
   DatabaseConfig,
-  DatabaseError
-} from '../types';
+  DatabaseError,
+} from "../types";
 
 export class MySQLAdapter extends BaseAdapter {
   private pool: any = null;
@@ -25,18 +25,18 @@ export class MySQLAdapter extends BaseAdapter {
 
   async connect(): Promise<void> {
     try {
-      const mysql = await import('mysql2/promise');
+      const mysql = await import("mysql2/promise");
 
       this.pool = mysql.createPool({
-        host: this.config.connection?.host || 'localhost',
+        host: this.config.connection?.host || "localhost",
         port: this.config.connection?.port || 3306,
         user: this.config.connection?.username,
         password: this.config.connection?.password,
-        database: this.config.connection?.database || 'analytics',
+        database: this.config.connection?.database || "analytics",
         waitForConnections: true,
         connectionLimit: this.config.pool?.max || 10,
         queueLimit: 0,
-        ...this.config.options
+        ...this.config.options,
       });
 
       // Create tables if they don't exist
@@ -44,7 +44,7 @@ export class MySQLAdapter extends BaseAdapter {
 
       this.connected = true;
     } catch (error) {
-      this.handleError(error, 'MySQL connection');
+      this.handleError(error, "MySQL connection");
     }
   }
 
@@ -56,7 +56,7 @@ export class MySQLAdapter extends BaseAdapter {
         this.pool = null;
       }
     } catch (error) {
-      this.handleError(error, 'MySQL disconnection');
+      this.handleError(error, "MySQL disconnection");
     }
   }
 
@@ -77,17 +77,17 @@ export class MySQLAdapter extends BaseAdapter {
         event.anonymousId || null,
         JSON.stringify(event.properties),
         JSON.stringify(event.context),
-        event.metadata ? JSON.stringify(event.metadata) : null
+        event.metadata ? JSON.stringify(event.metadata) : null,
       ]);
     } catch (error) {
-      this.handleError(error, 'Save event');
+      this.handleError(error, "Save event");
     }
   }
 
   async saveEvents(events: AnalyticsEvent[]): Promise<void> {
     if (events.length === 0) return;
 
-    events.forEach(event => this.validateEvent(event));
+    events.forEach((event) => this.validateEvent(event));
 
     try {
       const query = `
@@ -95,7 +95,7 @@ export class MySQLAdapter extends BaseAdapter {
         VALUES ?
       `;
 
-      const values = events.map(event => [
+      const values = events.map((event) => [
         event.id,
         event.type,
         event.timestamp,
@@ -104,12 +104,12 @@ export class MySQLAdapter extends BaseAdapter {
         event.anonymousId || null,
         JSON.stringify(event.properties),
         JSON.stringify(event.context),
-        event.metadata ? JSON.stringify(event.metadata) : null
+        event.metadata ? JSON.stringify(event.metadata) : null,
       ]);
 
       await this.pool.query(query, [values]);
     } catch (error) {
-      this.handleError(error, 'Save events batch');
+      this.handleError(error, "Save events batch");
     }
   }
 
@@ -120,7 +120,7 @@ export class MySQLAdapter extends BaseAdapter {
 
       return (rows as any[]).map(this.mapRowToEvent);
     } catch (error) {
-      this.handleError(error, 'Get events');
+      this.handleError(error, "Get events");
     }
   }
 
@@ -145,34 +145,37 @@ export class MySQLAdapter extends BaseAdapter {
         session.lastActivityTime,
         session.endTime || null,
         session.eventCount,
-        session.metadata ? JSON.stringify(session.metadata) : null
+        session.metadata ? JSON.stringify(session.metadata) : null,
       ]);
     } catch (error) {
-      this.handleError(error, 'Save session');
+      this.handleError(error, "Save session");
     }
   }
 
   async getSession(sessionId: string): Promise<Session | null> {
     try {
-      const query = 'SELECT * FROM sessions WHERE id = ?';
+      const query = "SELECT * FROM sessions WHERE id = ?";
       const [rows] = await this.pool.execute(query, [sessionId]);
 
       if ((rows as any[]).length === 0) return null;
 
       return this.mapRowToSession((rows as any[])[0]);
     } catch (error) {
-      this.handleError(error, 'Get session');
+      this.handleError(error, "Get session");
     }
   }
 
-  async updateSession(sessionId: string, updates: Partial<Session>): Promise<void> {
+  async updateSession(
+    sessionId: string,
+    updates: Partial<Session>,
+  ): Promise<void> {
     try {
       const fields: string[] = [];
       const values: any[] = [];
 
       Object.entries(updates).forEach(([key, value]) => {
         fields.push(`${key} = ?`);
-        if (typeof value === 'object' && value !== null) {
+        if (typeof value === "object" && value !== null) {
           values.push(JSON.stringify(value));
         } else {
           values.push(value);
@@ -182,11 +185,11 @@ export class MySQLAdapter extends BaseAdapter {
       if (fields.length === 0) return;
 
       values.push(sessionId);
-      const query = `UPDATE sessions SET ${fields.join(', ')} WHERE id = ?`;
+      const query = `UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`;
 
       await this.pool.execute(query, values);
     } catch (error) {
-      this.handleError(error, 'Update session');
+      this.handleError(error, "Update session");
     }
   }
 
@@ -208,34 +211,35 @@ export class MySQLAdapter extends BaseAdapter {
         user.traits ? JSON.stringify(user.traits) : null,
         user.consent ? JSON.stringify(user.consent) : null,
         user.createdAt,
-        user.updatedAt
+        user.updatedAt,
       ]);
     } catch (error) {
-      this.handleError(error, 'Save user');
+      this.handleError(error, "Save user");
     }
   }
 
   async getUser(userId: string): Promise<User | null> {
     try {
-      const query = 'SELECT * FROM users WHERE id = ? OR anonymousId = ? LIMIT 1';
+      const query =
+        "SELECT * FROM users WHERE id = ? OR anonymousId = ? LIMIT 1";
       const [rows] = await this.pool.execute(query, [userId, userId]);
 
       if ((rows as any[]).length === 0) return null;
 
       return this.mapRowToUser((rows as any[])[0]);
     } catch (error) {
-      this.handleError(error, 'Get user');
+      this.handleError(error, "Get user");
     }
   }
 
   async deleteOldEvents(olderThanTimestamp: number): Promise<number> {
     try {
-      const query = 'DELETE FROM events WHERE timestamp < ?';
+      const query = "DELETE FROM events WHERE timestamp < ?";
       const [result] = await this.pool.execute(query, [olderThanTimestamp]);
 
       return (result as any).affectedRows || 0;
     } catch (error) {
-      this.handleError(error, 'Delete old events');
+      this.handleError(error, "Delete old events");
     }
   }
 
@@ -245,31 +249,31 @@ export class MySQLAdapter extends BaseAdapter {
 
       const [totalResult] = await this.pool.execute(
         `SELECT COUNT(*) as total FROM events ${whereClause}`,
-        params
+        params,
       );
 
       const [typeResult] = await this.pool.execute(
         `SELECT type, COUNT(*) as count FROM events ${whereClause} GROUP BY type`,
-        params
+        params,
       );
 
       const [userResult] = await this.pool.execute(
         `SELECT COUNT(DISTINCT userId) as count FROM events ${whereClause} WHERE userId IS NOT NULL`,
-        params
+        params,
       );
 
       const [sessionResult] = await this.pool.execute(
         `SELECT COUNT(DISTINCT sessionId) as count FROM events ${whereClause}`,
-        params
+        params,
       );
 
       const [timeResult] = await this.pool.execute(
         `SELECT MIN(timestamp) as start, MAX(timestamp) as end FROM events ${whereClause}`,
-        params
+        params,
       );
 
       const eventsByType: Record<string, number> = {};
-      (typeResult as any[]).forEach(row => {
+      (typeResult as any[]).forEach((row) => {
         eventsByType[row.type] = row.count;
       });
 
@@ -280,11 +284,11 @@ export class MySQLAdapter extends BaseAdapter {
         uniqueSessions: (sessionResult as any[])[0].count,
         timeRange: {
           start: (timeResult as any[])[0].start || 0,
-          end: (timeResult as any[])[0].end || 0
-        }
+          end: (timeResult as any[])[0].end || 0,
+        },
       };
     } catch (error) {
-      this.handleError(error, 'Get event stats');
+      this.handleError(error, "Get event stats");
     }
   }
 
@@ -340,51 +344,75 @@ export class MySQLAdapter extends BaseAdapter {
     await this.pool.execute(createUsersTable);
   }
 
-  private buildSelectQuery(filter: EventFilter): { query: string; params: any[] } {
+  private buildSelectQuery(filter: EventFilter): {
+    query: string;
+    params: any[];
+  } {
     const { whereClause, params } = this.buildWhereClause(filter);
-    
+
     let query = `SELECT * FROM events ${whereClause} ORDER BY timestamp DESC`;
 
-    if (filter.limit) {
-      query += ` LIMIT ${filter.limit}`;
-      if (filter.offset) {
-        query += ` OFFSET ${filter.offset}`;
+    // Add LIMIT and OFFSET with validation to prevent SQL injection
+    if (
+      filter.limit &&
+      typeof filter.limit === "number" &&
+      filter.limit > 0 &&
+      filter.limit <= 10000
+    ) {
+      query += ` LIMIT ?`;
+      params.push(filter.limit);
+
+      if (
+        filter.offset &&
+        typeof filter.offset === "number" &&
+        filter.offset >= 0
+      ) {
+        query += ` OFFSET ?`;
+        params.push(filter.offset);
       }
+    } else if (filter.limit) {
+      // Add default limit of 100 if limit is provided but invalid
+      query += " LIMIT ?";
+      params.push(100);
     }
 
     return { query, params };
   }
 
-  private buildWhereClause(filter: EventFilter): { whereClause: string; params: any[] } {
+  private buildWhereClause(filter: EventFilter): {
+    whereClause: string;
+    params: any[];
+  } {
     const conditions: string[] = [];
     const params: any[] = [];
 
     if (filter.startTime) {
-      conditions.push('timestamp >= ?');
+      conditions.push("timestamp >= ?");
       params.push(filter.startTime);
     }
 
     if (filter.endTime) {
-      conditions.push('timestamp <= ?');
+      conditions.push("timestamp <= ?");
       params.push(filter.endTime);
     }
 
     if (filter.eventType) {
-      conditions.push('type = ?');
+      conditions.push("type = ?");
       params.push(filter.eventType);
     }
 
     if (filter.userId) {
-      conditions.push('userId = ?');
+      conditions.push("userId = ?");
       params.push(filter.userId);
     }
 
     if (filter.sessionId) {
-      conditions.push('sessionId = ?');
+      conditions.push("sessionId = ?");
       params.push(filter.sessionId);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     return { whereClause, params };
   }
@@ -397,9 +425,9 @@ export class MySQLAdapter extends BaseAdapter {
       sessionId: row.sessionId,
       userId: row.userId,
       anonymousId: row.anonymousId,
-      properties: JSON.parse(row.properties || '{}'),
-      context: JSON.parse(row.context || '{}'),
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      properties: JSON.parse(row.properties || "{}"),
+      context: JSON.parse(row.context || "{}"),
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     };
   }
 
@@ -412,7 +440,7 @@ export class MySQLAdapter extends BaseAdapter {
       lastActivityTime: row.lastActivityTime,
       endTime: row.endTime,
       eventCount: row.eventCount,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     };
   }
 
@@ -423,7 +451,7 @@ export class MySQLAdapter extends BaseAdapter {
       traits: row.traits ? JSON.parse(row.traits) : undefined,
       consent: row.consent ? JSON.parse(row.consent) : undefined,
       createdAt: row.createdAt,
-      updatedAt: row.updatedAt
+      updatedAt: row.updatedAt,
     };
   }
 }

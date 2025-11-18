@@ -195,8 +195,61 @@ export class AnalyticsAPIServer {
     const body = await this.parseBody(req);
     const { type, properties, context, sessionId, userId, anonymousId } = body;
 
-    if (!type) {
-      this.sendError(res, 400, "Missing required field: type");
+    // Validate input data
+    if (!type || typeof type !== "string" || type.length > 100) {
+      this.sendError(
+        res,
+        400,
+        "Invalid or missing required field: type (must be a string with max 100 characters)",
+      );
+      return;
+    }
+
+    if (properties && typeof properties !== "object") {
+      this.sendError(res, 400, "Properties must be an object");
+      return;
+    }
+
+    if (
+      sessionId &&
+      (typeof sessionId !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,50}$/.test(sessionId))
+    ) {
+      this.sendError(
+        res,
+        400,
+        "Invalid sessionId format (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    if (
+      userId &&
+      (typeof userId !== "string" || !/^[a-zA-Z0-9_-]{1,50}$/.test(userId))
+    ) {
+      this.sendError(
+        res,
+        400,
+        "Invalid userId format (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    if (
+      anonymousId &&
+      (typeof anonymousId !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,50}$/.test(anonymousId))
+    ) {
+      this.sendError(
+        res,
+        400,
+        "Invalid anonymousId format (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    if (context && typeof context !== "object") {
+      this.sendError(res, 400, "Context must be an object");
       return;
     }
 
@@ -234,6 +287,84 @@ export class AnalyticsAPIServer {
       return;
     }
 
+    // Validate batch size limits
+    if (events.length > 1000) {
+      this.sendError(
+        res,
+        400,
+        "Batch size exceeds maximum limit of 1000 events",
+      );
+      return;
+    }
+
+    // Validate each event in the batch
+    for (const event of events) {
+      if (typeof event !== "object") {
+        this.sendError(res, 400, "Each event must be an object");
+        return;
+      }
+
+      const { type, properties, context, sessionId, userId, anonymousId } =
+        event;
+
+      if (!type || typeof type !== "string" || type.length > 100) {
+        this.sendError(
+          res,
+          400,
+          "Each event must have a valid type (string with max 100 characters)",
+        );
+        return;
+      }
+
+      if (properties && typeof properties !== "object") {
+        this.sendError(res, 400, "Event properties must be an object");
+        return;
+      }
+
+      if (
+        sessionId &&
+        (typeof sessionId !== "string" ||
+          !/^[a-zA-Z0-9_-]{1,50}$/.test(sessionId))
+      ) {
+        this.sendError(
+          res,
+          400,
+          "Invalid sessionId format (alphanumeric, underscore, hyphen, max 50 chars)",
+        );
+        return;
+      }
+
+      if (
+        userId &&
+        (typeof userId !== "string" || !/^[a-zA-Z0-9_-]{1,50}$/.test(userId))
+      ) {
+        this.sendError(
+          res,
+          400,
+          "Invalid userId format (alphanumeric, underscore, hyphen, max 50 chars)",
+        );
+        return;
+      }
+
+      if (
+        anonymousId &&
+        (typeof anonymousId !== "string" ||
+          !/^[a-zA-Z0-9_-]{1,50}$/.test(anonymousId))
+      ) {
+        this.sendError(
+          res,
+          400,
+          "Invalid anonymousId format (alphanumeric, underscore, hyphen, max 50 chars)",
+        );
+        return;
+      }
+
+      if (context && typeof context !== "object") {
+        this.sendError(res, 400, "Context must be an object");
+        return;
+      }
+    }
+
     const trackedEvents = await this.sdk.trackBatch(events);
 
     this.sendJSON(res, 200, {
@@ -257,16 +388,88 @@ export class AnalyticsAPIServer {
     const url = parseUrl(req.url || "", true);
     const query = url.query;
 
+    // Validate query parameters
+    const startTime = query.startTime
+      ? parseInt(query.startTime as string)
+      : undefined;
+    if (startTime !== undefined && isNaN(startTime)) {
+      this.sendError(res, 400, "startTime must be a valid timestamp");
+      return;
+    }
+
+    const endTime = query.endTime
+      ? parseInt(query.endTime as string)
+      : undefined;
+    if (endTime !== undefined && isNaN(endTime)) {
+      this.sendError(res, 400, "endTime must be a valid timestamp");
+      return;
+    }
+
+    // Validate eventType if provided
+    const eventType = query.eventType as string | undefined;
+    if (
+      eventType &&
+      (typeof eventType !== "string" || eventType.length > 100)
+    ) {
+      this.sendError(
+        res,
+        400,
+        "eventType must be a string with maximum 100 characters",
+      );
+      return;
+    }
+
+    // Validate userId if provided
+    const userId = query.userId as string | undefined;
+    if (
+      userId &&
+      (typeof userId !== "string" || !/^[a-zA-Z0-9_-]{1,50}$/.test(userId))
+    ) {
+      this.sendError(
+        res,
+        400,
+        "userId must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    // Validate sessionId if provided
+    const sessionId = query.sessionId as string | undefined;
+    if (
+      sessionId &&
+      (typeof sessionId !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,50}$/.test(sessionId))
+    ) {
+      this.sendError(
+        res,
+        400,
+        "sessionId must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    // Validate limit if provided
+    const limit = query.limit ? parseInt(query.limit as string) : 100;
+    if (isNaN(limit) || limit <= 0 || limit > 10000) {
+      this.sendError(res, 400, "limit must be a number between 1 and 10000");
+      return;
+    }
+
+    // Validate offset if provided
+    const offset = query.offset ? parseInt(query.offset as string) : 0;
+    if (isNaN(offset) || offset < 0) {
+      this.sendError(res, 400, "offset must be a non-negative number");
+      return;
+    }
+
     const filter: EventFilter = {
-      startTime: query.startTime
-        ? parseInt(query.startTime as string)
-        : undefined,
-      endTime: query.endTime ? parseInt(query.endTime as string) : undefined,
-      eventType: query.eventType as string,
-      userId: query.userId as string,
-      sessionId: query.sessionId as string,
-      limit: query.limit ? parseInt(query.limit as string) : 100,
-      offset: query.offset ? parseInt(query.offset as string) : 0,
+      startTime,
+      endTime,
+      eventType,
+      userId,
+      sessionId,
+      limit,
+      offset,
     };
 
     const events = await this.sdk.getEvents(filter);
@@ -288,12 +491,41 @@ export class AnalyticsAPIServer {
     const url = parseUrl(req.url || "", true);
     const query = url.query;
 
+    // Validate query parameters
+    const startTime = query.startTime
+      ? parseInt(query.startTime as string)
+      : undefined;
+    if (startTime !== undefined && isNaN(startTime)) {
+      this.sendError(res, 400, "startTime must be a valid timestamp");
+      return;
+    }
+
+    const endTime = query.endTime
+      ? parseInt(query.endTime as string)
+      : undefined;
+    if (endTime !== undefined && isNaN(endTime)) {
+      this.sendError(res, 400, "endTime must be a valid timestamp");
+      return;
+    }
+
+    // Validate eventType if provided
+    const eventType = query.eventType as string | undefined;
+    if (
+      eventType &&
+      (typeof eventType !== "string" || eventType.length > 100)
+    ) {
+      this.sendError(
+        res,
+        400,
+        "eventType must be a string with maximum 100 characters",
+      );
+      return;
+    }
+
     const filter: EventFilter = {
-      startTime: query.startTime
-        ? parseInt(query.startTime as string)
-        : undefined,
-      endTime: query.endTime ? parseInt(query.endTime as string) : undefined,
-      eventType: query.eventType as string,
+      startTime,
+      endTime,
+      eventType,
     };
 
     const stats = await this.sdk.getStats(filter);
@@ -314,8 +546,34 @@ export class AnalyticsAPIServer {
     const body = await this.parseBody(req);
     const { userId, anonymousId, traits } = body;
 
-    if (!userId || !anonymousId) {
-      this.sendError(res, 400, "Missing required fields: userId, anonymousId");
+    if (
+      !userId ||
+      typeof userId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,50}$/.test(userId)
+    ) {
+      this.sendError(
+        res,
+        400,
+        "userId is required and must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    if (
+      !anonymousId ||
+      typeof anonymousId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,50}$/.test(anonymousId)
+    ) {
+      this.sendError(
+        res,
+        400,
+        "anonymousId is required and must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    if (traits && typeof traits !== "object") {
+      this.sendError(res, 400, "traits must be an object");
       return;
     }
 
@@ -337,8 +595,48 @@ export class AnalyticsAPIServer {
     const body = await this.parseBody(req);
     const { anonymousId, consent } = body;
 
-    if (!anonymousId || !consent) {
-      this.sendError(res, 400, "Missing required fields: anonymousId, consent");
+    if (
+      !anonymousId ||
+      typeof anonymousId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,50}$/.test(anonymousId)
+    ) {
+      this.sendError(
+        res,
+        400,
+        "anonymousId is required and must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+      return;
+    }
+
+    if (!consent || typeof consent !== "object") {
+      this.sendError(res, 400, "consent is required and must be an object");
+      return;
+    }
+
+    // Validate consent object structure
+    if (typeof consent.analytics !== "boolean") {
+      this.sendError(
+        res,
+        400,
+        "consent.analytics is required and must be a boolean",
+      );
+      return;
+    }
+
+    // marketing and necessary are optional, but if provided must be booleans
+    if (
+      consent.marketing !== undefined &&
+      typeof consent.marketing !== "boolean"
+    ) {
+      this.sendError(res, 400, "consent.marketing must be a boolean");
+      return;
+    }
+
+    if (
+      consent.necessary !== undefined &&
+      typeof consent.necessary !== "boolean"
+    ) {
+      this.sendError(res, 400, "consent.necessary must be a boolean");
       return;
     }
 

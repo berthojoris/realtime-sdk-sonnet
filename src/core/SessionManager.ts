@@ -3,8 +3,8 @@
  * Handles user session tracking and management
  */
 
-import { v4 as uuidv4 } from 'uuid';
-import { Session, User, DatabaseAdapter } from '../types';
+import { v4 as uuidv4 } from "uuid";
+import { Session, User, DatabaseAdapter } from "../types";
 
 export interface SessionManagerConfig {
   sessionTimeout?: number; // in milliseconds
@@ -17,24 +17,31 @@ export class SessionManager {
   private config: SessionManagerConfig;
   private adapter?: DatabaseAdapter;
   private sessionTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(config: SessionManagerConfig = {}, adapter?: DatabaseAdapter) {
     this.config = {
       sessionTimeout: config.sessionTimeout || 30 * 60 * 1000, // 30 minutes default
-      persistSessions: config.persistSessions !== false
+      persistSessions: config.persistSessions !== false,
     };
     this.adapter = adapter;
+
+    // Set up periodic cleanup to handle potential memory leaks
+    this.startPeriodicCleanup();
   }
 
   /**
    * Create or get a session
    */
-  async getOrCreateSession(userId?: string, anonymousId?: string): Promise<Session> {
+  async getOrCreateSession(
+    userId?: string,
+    anonymousId?: string,
+  ): Promise<Session> {
     const actualAnonymousId = anonymousId || this.generateAnonymousId();
-    
+
     // Check if user has an active session
     const existingSession = this.findActiveSession(userId, actualAnonymousId);
-    
+
     if (existingSession) {
       await this.updateSessionActivity(existingSession.id);
       return existingSession;
@@ -47,7 +54,7 @@ export class SessionManager {
       anonymousId: actualAnonymousId,
       startTime: Date.now(),
       lastActivityTime: Date.now(),
-      eventCount: 0
+      eventCount: 0,
     };
 
     this.sessions.set(session.id, session);
@@ -69,7 +76,7 @@ export class SessionManager {
   async getSession(sessionId: string): Promise<Session | null> {
     // Check in-memory first
     let session = this.sessions.get(sessionId);
-    
+
     if (session) {
       return session;
     }
@@ -77,7 +84,7 @@ export class SessionManager {
     // Check database if adapter is available
     if (this.adapter) {
       const dbSession = await this.adapter.getSession(sessionId);
-      
+
       if (dbSession) {
         this.sessions.set(sessionId, dbSession);
         return dbSession;
@@ -92,7 +99,7 @@ export class SessionManager {
    */
   async updateSessionActivity(sessionId: string): Promise<void> {
     const session = await this.getSession(sessionId);
-    
+
     if (!session) {
       return;
     }
@@ -106,7 +113,7 @@ export class SessionManager {
     if (this.config.persistSessions && this.adapter) {
       await this.adapter.updateSession(sessionId, {
         lastActivityTime: session.lastActivityTime,
-        eventCount: session.eventCount
+        eventCount: session.eventCount,
       });
     }
 
@@ -120,7 +127,7 @@ export class SessionManager {
    */
   async endSession(sessionId: string): Promise<void> {
     const session = await this.getSession(sessionId);
-    
+
     if (!session) {
       return;
     }
@@ -130,7 +137,7 @@ export class SessionManager {
     // Update in database
     if (this.config.persistSessions && this.adapter) {
       await this.adapter.updateSession(sessionId, {
-        endTime: session.endTime
+        endTime: session.endTime,
       });
     }
 
@@ -142,7 +149,11 @@ export class SessionManager {
   /**
    * Create or update a user
    */
-  async identifyUser(userId: string, anonymousId: string, traits?: Record<string, any>): Promise<User> {
+  async identifyUser(
+    userId: string,
+    anonymousId: string,
+    traits?: Record<string, any>,
+  ): Promise<User> {
     let user = this.users.get(anonymousId);
 
     if (user) {
@@ -155,7 +166,7 @@ export class SessionManager {
         anonymousId,
         traits,
         createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
     }
 
@@ -175,7 +186,7 @@ export class SessionManager {
   async getUser(userId: string): Promise<User | null> {
     // Check in-memory first
     let user = this.users.get(userId);
-    
+
     if (user) {
       return user;
     }
@@ -183,7 +194,7 @@ export class SessionManager {
     // Check database if adapter is available
     if (this.adapter) {
       const dbUser = await this.adapter.getUser(userId);
-      
+
       if (dbUser) {
         this.users.set(dbUser.anonymousId, dbUser);
         return dbUser;
@@ -198,7 +209,7 @@ export class SessionManager {
    */
   async updateUserConsent(
     anonymousId: string,
-    consent: { analytics: boolean; marketing?: boolean; necessary?: boolean }
+    consent: { analytics: boolean; marketing?: boolean; necessary?: boolean },
   ): Promise<void> {
     let user = await this.getUser(anonymousId);
 
@@ -207,7 +218,7 @@ export class SessionManager {
         anonymousId,
         consent,
         createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
     } else {
       user.consent = consent;
@@ -232,7 +243,10 @@ export class SessionManager {
   /**
    * Find active session for user
    */
-  private findActiveSession(userId?: string, anonymousId?: string): Session | null {
+  private findActiveSession(
+    userId?: string,
+    anonymousId?: string,
+  ): Session | null {
     const now = Date.now();
 
     for (const session of this.sessions.values()) {
@@ -242,8 +256,9 @@ export class SessionManager {
       }
 
       // Check if session is still active (not timed out)
-      const isActive = (now - session.lastActivityTime) < this.config.sessionTimeout!;
-      
+      const isActive =
+        now - session.lastActivityTime < this.config.sessionTimeout!;
+
       if (!isActive) {
         continue;
       }
@@ -277,7 +292,7 @@ export class SessionManager {
    */
   private clearSessionTimeout(sessionId: string): void {
     const timeout = this.sessionTimeouts.get(sessionId);
-    
+
     if (timeout) {
       clearTimeout(timeout);
       this.sessionTimeouts.delete(sessionId);
@@ -285,13 +300,82 @@ export class SessionManager {
   }
 
   /**
+   * Start periodic cleanup to prevent memory leaks
+   */
+  private startPeriodicCleanup(): void {
+    // Clean up every 10 minutes to remove expired sessions
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanupExpiredSessions();
+      },
+      10 * 60 * 1000,
+    ); // 10 minutes
+  }
+
+  /**
+   * Clean up expired sessions
+   */
+  private cleanupExpiredSessions(): void {
+    const now = Date.now();
+    const expiredSessionIds: string[] = [];
+
+    for (const [sessionId, session] of this.sessions) {
+      // Check if session is expired
+      if (
+        session.endTime ||
+        now - session.lastActivityTime >= this.config.sessionTimeout!
+      ) {
+        expiredSessionIds.push(sessionId);
+      }
+    }
+
+    // Clean up expired sessions
+    for (const sessionId of expiredSessionIds) {
+      this.endSessionImmediately(sessionId);
+    }
+  }
+
+  /**
+   * End session immediately without waiting for timeout
+   */
+  private endSessionImmediately(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+
+    session.endTime = Date.now();
+
+    // Update in database
+    if (this.config.persistSessions && this.adapter) {
+      this.adapter
+        .updateSession(sessionId, {
+          endTime: session.endTime,
+        })
+        .catch((error) => {
+          console.error("Error updating session in database:", error);
+        });
+    }
+
+    // Clear timeout and remove from memory
+    this.clearSessionTimeout(sessionId);
+    this.sessions.delete(sessionId);
+  }
+
+  /**
    * Clean up all sessions and timeouts
    */
   cleanup(): void {
     // Clear all timeouts
-    this.sessionTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.sessionTimeouts.forEach((timeout) => clearTimeout(timeout));
     this.sessionTimeouts.clear();
-    
+
+    // Clear cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+
     // Clear all sessions
     this.sessions.clear();
     this.users.clear();
@@ -305,7 +389,10 @@ export class SessionManager {
     let count = 0;
 
     for (const session of this.sessions.values()) {
-      if (!session.endTime && (now - session.lastActivityTime) < this.config.sessionTimeout!) {
+      if (
+        !session.endTime &&
+        now - session.lastActivityTime < this.config.sessionTimeout!
+      ) {
         count++;
       }
     }

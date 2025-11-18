@@ -3,7 +3,7 @@
  * Main SDK class that ties all components together
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import {
   ServerConfig,
   DatabaseAdapter,
@@ -14,12 +14,12 @@ import {
   User,
   EventFilter,
   EventStats,
-  ValidationError
-} from '../types';
-import { createAdapter } from '../adapters';
-import { SessionManager } from './SessionManager';
-import { BatchProcessor } from './BatchProcessor';
-import { RealtimeEventEmitter } from './EventEmitter';
+  ValidationError,
+} from "../types";
+import { createAdapter } from "../adapters";
+import { SessionManager } from "./SessionManager";
+import { BatchProcessor } from "./BatchProcessor";
+import { RealtimeEventEmitter } from "./EventEmitter";
 
 export class AnalyticsSDK {
   private config: ServerConfig;
@@ -31,17 +31,19 @@ export class AnalyticsSDK {
 
   constructor(config: ServerConfig) {
     this.config = config;
-    
+
     // Create database adapter
     this.adapter = createAdapter(config.database);
-    
+
     // Initialize session manager
     this.sessionManager = new SessionManager(
       {
-        sessionTimeout: config.analytics?.enableRealtime ? 30 * 60 * 1000 : undefined,
-        persistSessions: true
+        sessionTimeout: config.analytics?.enableRealtime
+          ? 30 * 60 * 1000
+          : undefined,
+        persistSessions: true,
       },
-      this.adapter
+      this.adapter,
     );
 
     // Initialize batch processor
@@ -50,7 +52,7 @@ export class AnalyticsSDK {
       flushInterval: config.analytics?.flushInterval || 5000,
       maxRetries: 3,
       retryDelay: 1000,
-      maxQueueSize: 10000
+      maxQueueSize: 10000,
     });
 
     // Initialize event emitter
@@ -71,9 +73,9 @@ export class AnalyticsSDK {
     try {
       await this.adapter.connect();
       this.initialized = true;
-      console.log('Analytics SDK initialized successfully');
+      console.log("Analytics SDK initialized successfully");
     } catch (error) {
-      console.error('Failed to initialize Analytics SDK:', error);
+      console.error("Failed to initialize Analytics SDK:", error);
       throw error;
     }
   }
@@ -87,14 +89,17 @@ export class AnalyticsSDK {
     context?: Partial<EventContext>,
     sessionId?: string,
     userId?: string,
-    anonymousId?: string
+    anonymousId?: string,
   ): Promise<AnalyticsEvent> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     // Get or create session
-    const session = await this.sessionManager.getOrCreateSession(userId, anonymousId);
+    const session = await this.sessionManager.getOrCreateSession(
+      userId,
+      anonymousId,
+    );
 
     // Create event
     const event: AnalyticsEvent = {
@@ -105,7 +110,7 @@ export class AnalyticsSDK {
       userId: userId || session.userId,
       anonymousId: anonymousId || session.anonymousId,
       properties: this.sanitizeProperties(properties),
-      context: this.buildContext(context)
+      context: this.buildContext(context),
     };
 
     // Validate event
@@ -113,7 +118,7 @@ export class AnalyticsSDK {
 
     // Check privacy settings
     if (!this.shouldTrack(session.anonymousId)) {
-      console.log('Event tracking skipped due to privacy settings');
+      console.log("Event tracking skipped due to privacy settings");
       return event;
     }
 
@@ -134,16 +139,18 @@ export class AnalyticsSDK {
   /**
    * Track multiple events at once
    */
-  async trackBatch(events: Array<{
-    type: EventType | string;
-    properties?: Record<string, any>;
-    context?: Partial<EventContext>;
-    sessionId?: string;
-    userId?: string;
-    anonymousId?: string;
-  }>): Promise<AnalyticsEvent[]> {
+  async trackBatch(
+    events: Array<{
+      type: EventType | string;
+      properties?: Record<string, any>;
+      context?: Partial<EventContext>;
+      sessionId?: string;
+      userId?: string;
+      anonymousId?: string;
+    }>,
+  ): Promise<AnalyticsEvent[]> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     const analyticsEvents: AnalyticsEvent[] = [];
@@ -155,7 +162,7 @@ export class AnalyticsSDK {
         eventData.context,
         eventData.sessionId,
         eventData.userId,
-        eventData.anonymousId
+        eventData.anonymousId,
       );
       analyticsEvents.push(event);
     }
@@ -169,10 +176,10 @@ export class AnalyticsSDK {
   async identify(
     userId: string,
     anonymousId: string,
-    traits?: Record<string, any>
+    traits?: Record<string, any>,
   ): Promise<User> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     return await this.sessionManager.identifyUser(userId, anonymousId, traits);
@@ -183,10 +190,10 @@ export class AnalyticsSDK {
    */
   async updateConsent(
     anonymousId: string,
-    consent: { analytics: boolean; marketing?: boolean; necessary?: boolean }
+    consent: { analytics: boolean; marketing?: boolean; necessary?: boolean },
   ): Promise<void> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     await this.sessionManager.updateUserConsent(anonymousId, consent);
@@ -197,7 +204,7 @@ export class AnalyticsSDK {
    */
   async getEvents(filter: EventFilter = {}): Promise<AnalyticsEvent[]> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     return await this.adapter.getEvents(filter);
@@ -208,7 +215,7 @@ export class AnalyticsSDK {
    */
   async getStats(filter: EventFilter = {}): Promise<EventStats> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     const stats = await this.adapter.getEventStats(filter);
@@ -226,7 +233,7 @@ export class AnalyticsSDK {
    */
   async getSession(sessionId: string): Promise<Session | null> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     return await this.sessionManager.getSession(sessionId);
@@ -237,7 +244,7 @@ export class AnalyticsSDK {
    */
   async getUser(userId: string): Promise<User | null> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     return await this.sessionManager.getUser(userId);
@@ -248,11 +255,11 @@ export class AnalyticsSDK {
    */
   async cleanupOldEvents(daysToKeep: number = 90): Promise<number> {
     if (!this.initialized) {
-      throw new Error('SDK not initialized. Call initialize() first.');
+      throw new Error("SDK not initialized. Call initialize() first.");
     }
 
     const retentionDays = this.config.privacy?.dataRetentionDays || daysToKeep;
-    const cutoffTimestamp = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const cutoffTimestamp = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
 
     return await this.adapter.deleteOldEvents(cutoffTimestamp);
   }
@@ -291,7 +298,7 @@ export class AnalyticsSDK {
   getQueueStatus(): { size: number; failed: number } {
     return {
       size: this.batchProcessor.getQueueSize(),
-      failed: this.batchProcessor.getFailedCount()
+      failed: this.batchProcessor.getFailedCount(),
     };
   }
 
@@ -317,9 +324,9 @@ export class AnalyticsSDK {
       await this.adapter.disconnect();
 
       this.initialized = false;
-      console.log('Analytics SDK shutdown successfully');
+      console.log("Analytics SDK shutdown successfully");
     } catch (error) {
-      console.error('Error during SDK shutdown:', error);
+      console.error("Error during SDK shutdown:", error);
       throw error;
     }
   }
@@ -329,19 +336,72 @@ export class AnalyticsSDK {
    */
   private validateEvent(event: AnalyticsEvent): void {
     if (!event.id) {
-      throw new ValidationError('Event ID is required');
+      throw new ValidationError("Event ID is required");
     }
 
     if (!event.type) {
-      throw new ValidationError('Event type is required');
+      throw new ValidationError("Event type is required");
     }
 
-    if (!event.timestamp) {
-      throw new ValidationError('Event timestamp is required');
+    if (typeof event.type !== "string" || event.type.length > 100) {
+      throw new ValidationError(
+        "Event type must be a string with maximum 100 characters",
+      );
+    }
+
+    if (!event.timestamp || typeof event.timestamp !== "number") {
+      throw new ValidationError(
+        "Event timestamp is required and must be a number",
+      );
+    }
+
+    // Ensure timestamp is not in the future (with a small buffer for clock differences)
+    const now = Date.now() + 60000; // Allow up to 1 minute in the future
+    if (event.timestamp > now) {
+      throw new ValidationError("Event timestamp cannot be in the future");
     }
 
     if (!event.sessionId) {
-      throw new ValidationError('Session ID is required');
+      throw new ValidationError("Session ID is required");
+    }
+
+    if (
+      typeof event.sessionId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,50}$/.test(event.sessionId)
+    ) {
+      throw new ValidationError(
+        "Session ID must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+    }
+
+    if (
+      event.userId &&
+      (typeof event.userId !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,50}$/.test(event.userId))
+    ) {
+      throw new ValidationError(
+        "User ID must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+    }
+
+    if (
+      event.anonymousId &&
+      (typeof event.anonymousId !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,50}$/.test(event.anonymousId))
+    ) {
+      throw new ValidationError(
+        "Anonymous ID must be a valid string (alphanumeric, underscore, hyphen, max 50 chars)",
+      );
+    }
+
+    // Validate properties
+    if (event.properties && typeof event.properties !== "object") {
+      throw new ValidationError("Event properties must be an object");
+    }
+
+    // Validate context
+    if (event.context && typeof event.context !== "object") {
+      throw new ValidationError("Event context must be an object");
     }
   }
 
@@ -350,14 +410,16 @@ export class AnalyticsSDK {
    */
   private buildContext(partialContext?: Partial<EventContext>): EventContext {
     return {
-      ...partialContext
+      ...partialContext,
     };
   }
 
   /**
    * Sanitize properties to remove PII if configured
    */
-  private sanitizeProperties(properties: Record<string, any>): Record<string, any> {
+  private sanitizeProperties(
+    properties: Record<string, any>,
+  ): Record<string, any> {
     if (!this.config.privacy?.enableGDPR) {
       return properties;
     }
@@ -366,7 +428,14 @@ export class AnalyticsSDK {
     const sanitized = { ...properties };
 
     // List of common PII fields to remove or anonymize
-    const piiFields = ['email', 'phone', 'ssn', 'creditCard', 'password', 'apiKey'];
+    const piiFields = [
+      "email",
+      "phone",
+      "ssn",
+      "creditCard",
+      "password",
+      "apiKey",
+    ];
 
     for (const field of piiFields) {
       if (field in sanitized) {

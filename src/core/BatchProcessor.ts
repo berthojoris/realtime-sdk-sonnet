@@ -3,8 +3,8 @@
  * Handles batching and retry logic for event delivery
  */
 
-import { AnalyticsEvent, QueueItem, DatabaseAdapter } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+import { AnalyticsEvent, QueueItem, DatabaseAdapter } from "../types";
+import { v4 as uuidv4 } from "uuid";
 
 export interface BatchProcessorConfig {
   batchSize?: number;
@@ -28,7 +28,7 @@ export class BatchProcessor {
       flushInterval: config.flushInterval || 5000, // 5 seconds
       maxRetries: config.maxRetries || 3,
       retryDelay: config.retryDelay || 1000, // 1 second
-      maxQueueSize: config.maxQueueSize || 10000
+      maxQueueSize: config.maxQueueSize || 10000,
     };
 
     // Start periodic flush
@@ -41,14 +41,14 @@ export class BatchProcessor {
   async add(event: AnalyticsEvent): Promise<void> {
     // Check queue size limit
     if (this.queue.length >= this.config.maxQueueSize!) {
-      throw new Error('Queue size limit exceeded');
+      throw new Error("Queue size limit exceeded");
     }
 
     const queueItem: QueueItem = {
       id: uuidv4(),
       event,
       attempts: 0,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.queue.push(queueItem);
@@ -72,7 +72,7 @@ export class BatchProcessor {
         id: uuidv4(),
         event,
         attempts: 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       this.queue.push(queueItem);
@@ -102,7 +102,7 @@ export class BatchProcessor {
       // Process batch
       await this.processBatch(batch);
     } catch (error) {
-      console.error('Flush error:', error);
+      console.error("Flush error:", error);
     } finally {
       this.processing = false;
 
@@ -118,25 +118,39 @@ export class BatchProcessor {
    */
   private async processBatch(batch: QueueItem[]): Promise<void> {
     try {
-      const events = batch.map(item => item.event);
+      const events = batch.map((item) => item.event);
       await this.adapter.saveEvents(events);
     } catch (error) {
-      console.error('Batch processing error:', error);
+      console.error("Batch processing error:", error);
 
-      // Retry failed items
+      const itemsToRetry: QueueItem[] = [];
+      const itemsToDiscard: QueueItem[] = [];
+
+      // Categorize items based on retry attempts
       for (const item of batch) {
         item.attempts++;
 
         if (item.attempts < this.config.maxRetries!) {
-          // Add back to queue for retry
-          this.queue.push(item);
-          
-          // Wait before retry
-          await this.delay(this.config.retryDelay!);
+          // Add to retry queue
+          itemsToRetry.push(item);
         } else {
-          // Max retries exceeded, log and discard
+          // Max retries exceeded, mark for discard
+          itemsToDiscard.push(item);
           console.error(`Max retries exceeded for event ${item.event.id}`);
         }
+      }
+
+      // Add retry items back to queue
+      for (const item of itemsToRetry) {
+        this.queue.push(item);
+        await this.delay(this.config.retryDelay!);
+      }
+
+      // Log discarded items if needed for debugging
+      if (itemsToDiscard.length > 0) {
+        console.warn(
+          `Discarded ${itemsToDiscard.length} events after max retries`,
+        );
       }
     }
   }
@@ -164,7 +178,7 @@ export class BatchProcessor {
    * Delay helper
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -178,7 +192,7 @@ export class BatchProcessor {
    * Get failed items count
    */
   getFailedCount(): number {
-    return this.queue.filter(item => item.attempts > 0).length;
+    return this.queue.filter((item) => item.attempts > 0).length;
   }
 
   /**
