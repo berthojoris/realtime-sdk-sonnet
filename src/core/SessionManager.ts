@@ -307,6 +307,7 @@ export class SessionManager {
     this.cleanupInterval = setInterval(
       () => {
         this.cleanupExpiredSessions();
+        this.cleanupExpiredUsers();
       },
       10 * 60 * 1000,
     ); // 10 minutes
@@ -332,6 +333,25 @@ export class SessionManager {
     // Clean up expired sessions
     for (const sessionId of expiredSessionIds) {
       this.endSessionImmediately(sessionId);
+    }
+  }
+
+  /**
+   * Clean up expired users to prevent memory leaks
+   */
+  private cleanupExpiredUsers(): void {
+    const now = Date.now();
+    const userRetentionPeriod = 24 * 60 * 60 * 1000; // 24 hours
+    const expiredUserIds: string[] = [];
+
+    for (const [anonymousId, user] of this.users) {
+      if (now - user.updatedAt > userRetentionPeriod) {
+        expiredUserIds.push(anonymousId);
+      }
+    }
+
+    for (const anonymousId of expiredUserIds) {
+      this.users.delete(anonymousId);
     }
   }
 

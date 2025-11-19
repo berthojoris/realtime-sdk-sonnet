@@ -141,9 +141,11 @@ export class BatchProcessor {
       }
 
       // Add retry items back to queue
-      for (const item of itemsToRetry) {
-        this.queue.push(item);
+      if (itemsToRetry.length > 0) {
         await this.delay(this.config.retryDelay!);
+        for (const item of itemsToRetry) {
+          this.queue.push(item);
+        }
       }
 
       // Log discarded items if needed for debugging

@@ -117,7 +117,7 @@ export class AnalyticsSDK {
     this.validateEvent(event);
 
     // Check privacy settings
-    if (!this.shouldTrack(session.anonymousId)) {
+    if (!await this.shouldTrack(session.anonymousId)) {
       console.log("Event tracking skipped due to privacy settings");
       return event;
     }
