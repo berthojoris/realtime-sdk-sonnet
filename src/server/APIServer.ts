@@ -17,6 +17,7 @@ export class AnalyticsAPIServer {
   private config: APIServerConfig;
   private server: any;
   private wsClients: Set<any> = new Set();
+  private rateLimitMap: Map<string, { count: number; resetTime: number }> = new Map();
 
   constructor(config: APIServerConfig) {
     // Set defaults first
@@ -99,6 +100,11 @@ export class AnalyticsAPIServer {
         });
       });
     }
+
+    // Set up rate limit cleanup interval
+    setInterval(() => {
+      this.cleanupRateLimit();
+    }, 60000); // Clean up every minute
   }
 
   /**
@@ -152,6 +158,12 @@ export class AnalyticsAPIServer {
       // Verify IP allowlist/blocklist
       if (!this.verifyIPAccess(req)) {
         this.sendError(res, 403, "Forbidden: IP address not allowed");
+        return;
+      }
+
+      // Check rate limiting
+      if (!this.checkRateLimit(req)) {
+        this.sendError(res, 429, "Too Many Requests");
         return;
       }
 
@@ -958,6 +970,59 @@ export class AnalyticsAPIServer {
       error: message,
     });
   }
+  /**
+   * Check rate limiting for incoming requests
+   */
+  private checkRateLimit(req: IncomingMessage): boolean {
+    const security = this.config.server?.security;
+    
+    // Skip rate limiting if not configured
+    if (!security?.rateLimit) {
+      return true;
+    }
+
+    const clientIP = this.getClientIP(req);
+    const now = Date.now();
+    const windowMs = security.rateLimit.windowMs || 60000; // 1 minute default
+    const maxRequests = security.rateLimit.maxRequests || 100;
+
+    // Get or create rate limit entry for this IP
+    let rateLimitEntry = this.rateLimitMap.get(clientIP);
+    
+    if (!rateLimitEntry || now > rateLimitEntry.resetTime) {
+      // Create new entry or reset expired one
+      rateLimitEntry = {
+        count: 1,
+        resetTime: now + windowMs
+      };
+      this.rateLimitMap.set(clientIP, rateLimitEntry);
+      return true;
+    }
+
+    // Increment request count
+    rateLimitEntry.count++;
+    
+    // Check if rate limit exceeded
+    if (rateLimitEntry.count > maxRequests) {
+      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Clean up expired rate limit entries
+   */
+  private cleanupRateLimit(): void {
+    const now = Date.now();
+    for (const [ip, entry] of this.rateLimitMap.entries()) {
+      if (now > entry.resetTime) {
+        this.rateLimitMap.delete(ip);
+      }
+    }
+  }
+
 
   /**
    * Get the SDK instance

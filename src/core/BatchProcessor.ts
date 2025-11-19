@@ -39,9 +39,12 @@ export class BatchProcessor {
    * Add event to the queue
    */
   async add(event: AnalyticsEvent): Promise<void> {
-    // Check queue size limit
+    // Check queue size limit with backpressure
     if (this.queue.length >= this.config.maxQueueSize!) {
-      throw new Error("Queue size limit exceeded");
+      // Instead of throwing, implement backpressure by removing oldest events
+      const itemsToRemove = Math.min(this.queue.length / 4, this.config.batchSize!);
+      this.queue.splice(0, itemsToRemove);
+      console.warn(`Queue size limit exceeded, dropped ${itemsToRemove} oldest events`);
     }
 
     const queueItem: QueueItem = {
@@ -55,7 +58,10 @@ export class BatchProcessor {
 
     // Flush if batch size is reached
     if (this.queue.length >= this.config.batchSize!) {
-      await this.flush();
+      // Don't await flush to avoid blocking the caller
+      setImmediate(() => this.flush().catch(error => {
+        console.error("Flush error during add:", error);
+      }));
     }
   }
 
@@ -63,8 +69,14 @@ export class BatchProcessor {
    * Add multiple events to the queue
    */
   async addBatch(events: AnalyticsEvent[]): Promise<void> {
+    let addedCount = 0;
+    
     for (const event of events) {
       if (this.queue.length >= this.config.maxQueueSize!) {
+        // Implement backpressure by removing oldest events
+        const itemsToRemove = Math.min(this.queue.length / 4, this.config.batchSize!);
+        this.queue.splice(0, itemsToRemove);
+        console.warn(`Queue size limit exceeded during batch, dropped ${itemsToRemove} oldest events`);
         break;
       }
 
@@ -76,11 +88,19 @@ export class BatchProcessor {
       };
 
       this.queue.push(queueItem);
+      addedCount++;
     }
 
     // Flush if batch size is reached
     if (this.queue.length >= this.config.batchSize!) {
-      await this.flush();
+      // Don't await flush to avoid blocking the caller
+      setImmediate(() => this.flush().catch(error => {
+        console.error("Flush error during addBatch:", error);
+      }));
+    }
+    
+    if (addedCount < events.length) {
+      console.warn(`Only added ${addedCount} of ${events.length} events due to queue limits`);
     }
   }
 

@@ -311,6 +311,11 @@ export class SessionManager {
       },
       10 * 60 * 1000,
     ); // 10 minutes
+    
+    // Unref() interval to allow Node.js to exit cleanly
+    if (this.cleanupInterval && typeof this.cleanupInterval.unref === 'function') {
+      this.cleanupInterval.unref();
+    }
   }
 
   /**
@@ -399,6 +404,13 @@ export class SessionManager {
     // Clear all sessions
     this.sessions.clear();
     this.users.clear();
+    
+    // Clear any pending database operations
+    if (this.adapter) {
+      // Force cleanup of any pending operations
+      this.cleanupExpiredSessions();
+      this.cleanupExpiredUsers();
+    }
   }
 
   /**

@@ -42,6 +42,9 @@ export class MySQLAdapter extends BaseAdapter {
       // Create tables if they don't exist
       await this.createTables();
 
+      // Set up connection pool monitoring
+      this.setupPoolMonitoring();
+
       this.connected = true;
     } catch (error) {
       this.handleError(error, "MySQL connection");
@@ -51,6 +54,7 @@ export class MySQLAdapter extends BaseAdapter {
   async disconnect(): Promise<void> {
     try {
       if (this.pool) {
+        // Gracefully close all connections
         await this.pool.end();
         this.connected = false;
         this.pool = null;
@@ -58,6 +62,26 @@ export class MySQLAdapter extends BaseAdapter {
     } catch (error) {
       this.handleError(error, "MySQL disconnection");
     }
+  }
+
+  /**
+   * Set up connection pool monitoring
+   */
+  private setupPoolMonitoring(): void {
+    if (!this.pool) return;
+
+    // Monitor pool events for better resource management
+    this.pool.on('connection', (connection: any) => {
+      console.debug('New MySQL connection established');
+    });
+
+    this.pool.on('enqueue', () => {
+      console.warn('MySQL connection queue is full, requests are being queued');
+    });
+
+    this.pool.on('release', (connection: any) => {
+      console.debug('MySQL connection released back to pool');
+    });
   }
 
   async saveEvent(event: AnalyticsEvent): Promise<void> {
