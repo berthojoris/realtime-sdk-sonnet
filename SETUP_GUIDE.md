@@ -15,6 +15,7 @@ Complete guide to setting up and configuring the Realtime Analytics Server with 
 9. [Features Overview](#features-overview)
 10. [Troubleshooting](#troubleshooting)
 11. [Production Deployment](#production-deployment)
+12. [Browser Integration](#browser-integration) ⭐ NEW
 
 ---
 
@@ -987,11 +988,672 @@ npm start
 
 ---
 
+## Browser Integration
+
+### Overview
+
+Connect your web application or website to the analytics server using the Browser SDK. The SDK provides automatic event tracking, session management, and offline queueing.
+
+### Quick Start - Add to Any HTML Page
+
+Add the following code to your HTML file:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Website</title>
+</head>
+<body>
+    <h1>Welcome to My Site</h1>
+    <button id="cta-button">Click Me!</button>
+
+    <!-- Step 1: CommonJS Shim (required for browser compatibility) -->
+    <script>
+        var exports = {};
+        var module = { exports: exports };
+        var require = function(path) {
+            if (path === '../types') {
+                return {
+                    EventType: {
+                        PAGE_VIEW: 'page_view',
+                        CLICK: 'click',
+                        ERROR: 'error'
+                    }
+                };
+            }
+            return {};
+        };
+    </script>
+
+    <!-- Step 2: Load the Browser SDK -->
+    <script src="http://localhost:3000/dist/client/BrowserSDK.js"></script>
+
+    <!-- Step 3: Extract SDK from exports -->
+    <script>
+        window.BrowserAnalyticsSDK = exports.BrowserAnalyticsSDK || window.BrowserAnalyticsSDK;
+    </script>
+
+    <!-- Step 4: Initialize and Track Events -->
+    <script>
+        // Initialize the SDK
+        const analytics = new BrowserAnalyticsSDK({
+            apiKey: 'your-api-key',          // Optional if no auth
+            endpoint: 'http://localhost:3000', // Your analytics server URL
+            debug: true,                      // Enable console logs
+            batchSize: 5,                     // Send after 5 events
+            batchInterval: 3000,              // Or every 3 seconds
+            enableAutoTracking: true          // Auto-track clicks, errors
+        });
+
+        // Track page view automatically
+        analytics.page('Home', 'Main', {
+            referrer: document.referrer
+        });
+
+        // Track custom events
+        document.getElementById('cta-button').addEventListener('click', function() {
+            analytics.track('button_click', {
+                button_id: 'cta-button',
+                button_text: 'Click Me!'
+            });
+        });
+
+        // Identify users when they log in
+        function onUserLogin(userId, userEmail) {
+            analytics.identify(userId, {
+                email: userEmail,
+                plan: 'premium'
+            });
+        }
+    </script>
+</body>
+</html>
+```
+
+### Serving the SDK
+
+#### Option 1: Static File Server (Recommended)
+
+Serve the compiled SDK file directly:
+
+```bash
+# Copy SDK to your web server's public directory
+cp dist/client/BrowserSDK.js /var/www/html/js/
+
+# Or use a simple static server
+npx http-server dist/client -p 8080 --cors
+```
+
+Then load in HTML:
+```html
+<script src="/js/BrowserSDK.js"></script>
+```
+
+#### Option 2: CDN / Cloud Storage
+
+Upload `dist/client/BrowserSDK.js` to:
+- AWS S3 + CloudFront
+- Google Cloud Storage
+- Cloudflare Pages
+- Any CDN
+
+```html
+<script src="https://cdn.yoursite.com/analytics/BrowserSDK.js"></script>
+```
+
+#### Option 3: Bundle with Your App
+
+**For React/Vue/Angular:**
+```bash
+npm install realtime-analytics-sdk
+```
+
+```javascript
+import { BrowserAnalyticsSDK } from 'realtime-analytics-sdk';
+
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: 'https://analytics.yoursite.com',
+    apiKey: 'your-api-key'
+});
+```
+
+### Configuration Options
+
+```javascript
+const analytics = new BrowserAnalyticsSDK({
+    // Required
+    apiKey: 'your-api-key',              // API key (if auth enabled)
+    endpoint: 'http://localhost:3000',   // Analytics server URL
+
+    // Optional
+    debug: false,                        // Enable debug logging
+    batchSize: 10,                       // Events per batch
+    batchInterval: 5000,                 // Flush interval (ms)
+    maxRetries: 3,                       // Retry failed requests
+    retryDelay: 1000,                    // Delay between retries (ms)
+
+    // Privacy
+    respectDoNotTrack: true,             // Honor DNT header
+    enableOfflineQueue: true,            // Queue when offline
+    maxQueueSize: 1000,                  // Max queued events
+
+    // Session
+    sessionTimeout: 1800000,             // 30 minutes (ms)
+    cookieDomain: '.yoursite.com',       // Cookie domain
+
+    // Transport
+    transport: 'fetch',                  // 'fetch' or 'beacon'
+
+    // Auto-tracking
+    enableAutoTracking: false            // Auto-track clicks/errors
+});
+```
+
+### Tracking Events
+
+#### Page Views
+
+```javascript
+// Basic page view
+analytics.page();
+
+// Page view with details
+analytics.page('Product Page', 'E-commerce', {
+    product_id: 'prod-123',
+    category: 'electronics'
+});
+```
+
+#### Custom Events
+
+```javascript
+// Button clicks
+analytics.track('button_click', {
+    button_id: 'purchase',
+    button_text: 'Buy Now',
+    price: 99.99
+});
+
+// Form submissions
+analytics.track('form_submit', {
+    form_name: 'newsletter',
+    email: 'user@example.com'
+});
+
+// Video plays
+analytics.track('video_play', {
+    video_id: 'intro-video',
+    duration: 120
+});
+
+// Purchases
+analytics.track('purchase', {
+    order_id: 'order-789',
+    total: 149.99,
+    items: 3,
+    currency: 'USD'
+});
+```
+
+#### User Identification
+
+```javascript
+// Identify user after login
+analytics.identify('user-12345', {
+    name: 'John Doe',
+    email: 'john@example.com',
+    plan: 'premium',
+    signup_date: '2024-01-15'
+});
+
+// Track user logout
+function logout() {
+    analytics.reset(); // Creates new session
+}
+```
+
+#### Error Tracking
+
+```javascript
+// Manual error tracking
+try {
+    // Your code
+} catch (error) {
+    analytics.track('error', {
+        message: error.message,
+        stack: error.stack,
+        page: window.location.pathname
+    });
+}
+
+// Automatic error tracking (with enableAutoTracking: true)
+// Catches all JavaScript errors automatically
+```
+
+### Auto-Tracking Features
+
+Enable automatic event tracking:
+
+```javascript
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: 'http://localhost:3000',
+    enableAutoTracking: true  // Enable auto-tracking
+});
+```
+
+**Automatically tracks:**
+- ✅ Button clicks
+- ✅ Link clicks
+- ✅ JavaScript errors
+- ✅ Unhandled promise rejections
+- ✅ Page visibility changes
+- ✅ Elements with `data-track` attribute
+
+**Example:**
+```html
+<button data-track="signup-button">Sign Up</button>
+<a href="/pricing" data-track="pricing-link">Pricing</a>
+
+<!-- Clicks are automatically tracked with element details -->
+```
+
+### Framework Integration
+
+#### React
+
+```jsx
+import { BrowserAnalyticsSDK } from 'realtime-analytics-sdk';
+import { useEffect } from 'react';
+
+// Create analytics instance
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: 'http://localhost:3000',
+    apiKey: 'your-api-key'
+});
+
+function App() {
+    useEffect(() => {
+        // Track page view on component mount
+        analytics.page('Home');
+    }, []);
+
+    const handleClick = () => {
+        analytics.track('button_click', {
+            component: 'App',
+            action: 'clicked_cta'
+        });
+    };
+
+    return (
+        <div>
+            <h1>My App</h1>
+            <button onClick={handleClick}>Click Me</button>
+        </div>
+    );
+}
+```
+
+#### Vue.js
+
+```vue
+<template>
+    <div>
+        <h1>My App</h1>
+        <button @click="handleClick">Click Me</button>
+    </div>
+</template>
+
+<script>
+import { BrowserAnalyticsSDK } from 'realtime-analytics-sdk';
+
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: 'http://localhost:3000',
+    apiKey: 'your-api-key'
+});
+
+export default {
+    mounted() {
+        analytics.page('Home');
+    },
+    methods: {
+        handleClick() {
+            analytics.track('button_click', {
+                component: 'App'
+            });
+        }
+    }
+};
+</script>
+```
+
+#### Next.js
+
+```jsx
+// pages/_app.js
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { BrowserAnalyticsSDK } from 'realtime-analytics-sdk';
+
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: process.env.NEXT_PUBLIC_ANALYTICS_URL,
+    apiKey: process.env.NEXT_PUBLIC_ANALYTICS_KEY
+});
+
+function MyApp({ Component, pageProps }) {
+    const router = useRouter();
+
+    useEffect(() => {
+        // Track page views on route change
+        const handleRouteChange = (url) => {
+            analytics.page(url);
+        };
+
+        router.events.on('routeChangeComplete', handleRouteChange);
+
+        return () => {
+            router.events.off('routeChangeComplete', handleRouteChange);
+        };
+    }, [router.events]);
+
+    return <Component {...pageProps} />;
+}
+
+export default MyApp;
+```
+
+### Production Setup
+
+#### 1. Build and Deploy SDK
+
+```bash
+# Build the project
+npm run build
+
+# SDK file location
+dist/client/BrowserSDK.js
+
+# Deploy to your static server
+cp dist/client/BrowserSDK.js /var/www/html/js/analytics.js
+```
+
+#### 2. Configure CORS on Analytics Server
+
+In `examples/web-client/server.ts` or your production server:
+
+```typescript
+cors: {
+    origin: ['https://yoursite.com', 'https://www.yoursite.com'],
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS']
+}
+```
+
+Or in `.env`:
+```bash
+CORS_ORIGIN=https://yoursite.com,https://www.yoursite.com
+```
+
+#### 3. Enable HTTPS
+
+```bash
+# In production, use HTTPS for both
+endpoint: 'https://analytics.yoursite.com'
+```
+
+#### 4. Environment Variables
+
+```javascript
+// Use environment-specific URLs
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: process.env.NODE_ENV === 'production'
+        ? 'https://analytics.yoursite.com'
+        : 'http://localhost:3000',
+    apiKey: process.env.ANALYTICS_API_KEY,
+    debug: process.env.NODE_ENV !== 'production'
+});
+```
+
+### Testing Your Integration
+
+#### 1. Check SDK is Loaded
+
+Open browser console:
+```javascript
+console.log(typeof BrowserAnalyticsSDK); // Should be "function"
+```
+
+#### 2. Verify Events Are Sent
+
+Enable debug mode:
+```javascript
+const analytics = new BrowserAnalyticsSDK({
+    endpoint: 'http://localhost:3000',
+    debug: true  // See console logs
+});
+```
+
+Check browser console for:
+```
+[Analytics SDK] Browser SDK initialized
+[Analytics SDK] Event queued
+[Analytics SDK] Batch sent successfully
+```
+
+#### 3. Check Server Logs
+
+On the analytics server, you should see:
+```
+📦 Batch Received: 1 events
+   1. page_view [abc-123]
+```
+
+#### 4. Query Events via API
+
+```bash
+# Get recent events
+curl http://localhost:3000/events?limit=10
+
+# Get statistics
+curl http://localhost:3000/stats
+```
+
+#### 5. View Saved Data
+
+```bash
+# View today's events
+cat analytics-data/events/events-2024-11-20.jsonl
+
+# Or via API
+curl http://localhost:3000/events
+```
+
+### Common Integration Patterns
+
+#### Single Page App (SPA)
+
+```javascript
+// Track route changes
+window.addEventListener('popstate', () => {
+    analytics.page(window.location.pathname);
+});
+
+// Or with History API
+const originalPushState = history.pushState;
+history.pushState = function() {
+    originalPushState.apply(this, arguments);
+    analytics.page(window.location.pathname);
+};
+```
+
+#### E-commerce Tracking
+
+```javascript
+// Product views
+analytics.track('product_view', {
+    product_id: 'prod-123',
+    product_name: 'Blue Widget',
+    price: 29.99,
+    category: 'widgets'
+});
+
+// Add to cart
+analytics.track('add_to_cart', {
+    product_id: 'prod-123',
+    quantity: 2,
+    price: 29.99
+});
+
+// Purchase
+analytics.track('purchase', {
+    order_id: 'order-789',
+    total: 149.99,
+    items: [
+        { id: 'prod-123', quantity: 2, price: 29.99 },
+        { id: 'prod-456', quantity: 1, price: 89.99 }
+    ]
+});
+```
+
+#### A/B Testing
+
+```javascript
+// Track experiment variant
+analytics.track('experiment_view', {
+    experiment_id: 'homepage_v2',
+    variant: 'control',  // or 'variant_a'
+    user_id: userId
+});
+```
+
+#### Performance Monitoring
+
+```javascript
+// Track page load time
+window.addEventListener('load', () => {
+    const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+
+    analytics.track('page_load', {
+        load_time_ms: loadTime,
+        page: window.location.pathname
+    });
+});
+```
+
+### Troubleshooting Browser Integration
+
+#### SDK Not Loading
+
+**Problem:** `BrowserAnalyticsSDK is not defined`
+
+**Solutions:**
+1. Check script path is correct
+2. Verify file exists: `curl http://localhost:3000/dist/client/BrowserSDK.js`
+3. Check browser console for 404 errors
+4. Ensure CommonJS shim is loaded before SDK
+
+#### Events Not Sending
+
+**Problem:** No events appear in server logs
+
+**Solutions:**
+1. Enable debug mode: `debug: true`
+2. Check CORS configuration on server
+3. Verify endpoint URL is correct
+4. Check browser console for errors
+5. Test server health: `curl http://localhost:3000/health`
+6. Disable GDPR if in demo mode (see server config)
+
+#### CORS Errors
+
+**Problem:** `Access-Control-Allow-Origin` error
+
+**Solutions:**
+1. Add your domain to CORS config:
+   ```typescript
+   cors: {
+       origin: ['http://localhost:8080', 'https://yoursite.com']
+   }
+   ```
+2. Or allow all for development:
+   ```typescript
+   cors: {
+       origin: '*'
+   }
+   ```
+
+#### Events Not Saved (GDPR Issue)
+
+**Problem:** Server receives events but doesn't save them
+
+**Solution:** Disable GDPR for demo/development:
+```typescript
+// In server configuration
+privacy: {
+    enableGDPR: false  // For demo only
+}
+```
+
+Or provide user consent:
+```javascript
+analytics.track('consent', {
+    analytics: true,
+    marketing: true
+});
+```
+
+### Example Applications
+
+Full working examples are available in `examples/web-client/`:
+
+1. **Basic HTML** - `examples/web-client/index.html`
+   - Simple integration
+   - Manual event tracking
+   - Auto-tracking demo
+
+2. **Server Setup** - `examples/web-client/server.ts`
+   - API server configuration
+   - CORS setup
+   - GDPR settings
+
+**Run the example:**
+```bash
+# Terminal 1: Start analytics server
+npx ts-node examples/web-client/server.ts
+
+# Terminal 2: Serve HTML
+npx http-server -p 8080
+
+# Open browser
+http://localhost:8080/examples/web-client/
+```
+
+### Best Practices
+
+1. **Initialize Once:** Create SDK instance once per page
+2. **Flush on Exit:** SDK auto-flushes on page unload
+3. **Batch Events:** Let SDK batch events automatically
+4. **User Privacy:** Respect Do Not Track
+5. **Error Handling:** SDK never throws errors
+6. **Offline Support:** Events queued when offline
+7. **Session Management:** Automatic 30-minute timeout
+
+### Security Considerations
+
+1. **API Keys:** Don't expose production keys in client code
+2. **HTTPS:** Always use HTTPS in production
+3. **CORS:** Restrict origins to your domains only
+4. **Rate Limiting:** Enabled by default on server
+5. **Data Privacy:** Enable GDPR compliance in production
+
+---
+
 ## Support & Resources
 
 ### Documentation
 - `.env.example` - Configuration template with all options
 - `examples/` - Working example implementations
+- `examples/web-client/` - Complete browser integration example
 - `test-sqlite-auto-create.js` - Test auto-create feature
 
 ### Quick Reference
@@ -1007,15 +1669,20 @@ npm start
 
 # Verify it works
 curl http://localhost:3000/health
+
+# Test browser integration
+npx ts-node examples/web-client/server.ts
+# Then open http://localhost:8080/examples/web-client/
 ```
 
 ### Need Help?
 
 1. Check this guide
 2. Review `.env.example`
-3. Look at `examples/`
+3. Look at `examples/web-client/` for browser integration
 4. Enable debug: `DEBUG=true npm start`
-5. Check database logs
+5. Check browser console with SDK `debug: true`
+6. Check database logs
 
 ---
 
@@ -1023,17 +1690,23 @@ curl http://localhost:3000/health
 
 You now have a **production-ready analytics server** with:
 
-✅ **Zero-configuration SQLite** - Just run and go  
-✅ **Auto-create directories** - No manual setup  
-✅ **Universal migrations** - Works on all databases  
-✅ **Environment-based config** - Easy deployment  
-✅ **Production security** - API keys, rate limiting, GDPR  
-✅ **Seamless database switching** - Change one line  
-✅ **Comprehensive documentation** - Everything you need  
+✅ **Zero-configuration SQLite** - Just run and go
+✅ **Auto-create directories** - No manual setup
+✅ **Universal migrations** - Works on all databases
+✅ **Environment-based config** - Easy deployment
+✅ **Production security** - API keys, rate limiting, GDPR
+✅ **Seamless database switching** - Change one line
+✅ **Browser SDK** - Easy web integration with auto-tracking
+✅ **Framework support** - React, Vue, Next.js examples included
+✅ **Comprehensive documentation** - Everything you need
 
 **Start building immediately:**
 ```bash
+# Start analytics server
 npm run migrate:up && npm start
+
+# Integrate with your website (see Browser Integration section)
+# Add SDK to HTML and start tracking events!
 ```
 
 🚀 **Your analytics server is ready to use!**
