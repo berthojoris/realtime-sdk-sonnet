@@ -17,7 +17,9 @@ export class AnalyticsAPIServer {
   private config: APIServerConfig;
   private server: any;
   private wsClients: Set<any> = new Set();
-  private rateLimitMap: Map<string, { count: number; resetTime: number }> = new Map();
+  private rateLimitMap: Map<string, { count: number; resetTime: number }> =
+    new Map();
+  private connectedClients: Set<string> = new Set();
 
   constructor(config: APIServerConfig) {
     // Set defaults first
@@ -155,6 +157,9 @@ export class AnalyticsAPIServer {
     const pathname = url.pathname || "";
 
     try {
+      // Log new client connection
+      this.logClientConnection(req);
+
       // Verify IP allowlist/blocklist
       if (!this.verifyIPAccess(req)) {
         this.sendError(res, 403, "Forbidden: IP address not allowed");
@@ -206,6 +211,13 @@ export class AnalyticsAPIServer {
   ): Promise<void> {
     const body = await this.parseBody(req);
     const { type, properties, context, sessionId, userId, anonymousId } = body;
+
+    // Log event received
+    console.log(`\n📊 Event Received:`);
+    console.log(`   Type: ${type}`);
+    console.log(`   Session: ${sessionId || "N/A"}`);
+    console.log(`   User: ${userId || anonymousId || "N/A"}`);
+    console.log(`   Properties:`, properties || {});
 
     // Validate input data
     if (!type || typeof type !== "string" || type.length > 100) {
@@ -294,6 +306,9 @@ export class AnalyticsAPIServer {
     const body = await this.parseBody(req);
     const { events } = body;
 
+    // Log batch received
+    console.log(`\n📦 Batch Received: ${events?.length || 0} events`);
+
     if (!Array.isArray(events) || events.length === 0) {
       this.sendError(res, 400, "Invalid or empty events array");
       return;
@@ -378,6 +393,11 @@ export class AnalyticsAPIServer {
     }
 
     const trackedEvents = await this.sdk.trackBatch(events);
+
+    // Log each event in batch
+    trackedEvents.forEach((e, index) => {
+      console.log(`   ${index + 1}. ${e.type} [${e.id}]`);
+    });
 
     this.sendJSON(res, 200, {
       success: true,
@@ -728,6 +748,25 @@ export class AnalyticsAPIServer {
   }
 
   /**
+   * Log client connection (only once per session)
+   */
+  private logClientConnection(req: IncomingMessage): void {
+    const body = req.url || "";
+    const sessionId = req.headers["x-session-id"] as string;
+    const clientIP = this.getClientIP(req);
+    const clientKey = sessionId || clientIP;
+
+    if (!this.connectedClients.has(clientKey)) {
+      this.connectedClients.add(clientKey);
+      console.log(`\n✅ New Client Connected:`);
+      console.log(`   IP: ${clientIP}`);
+      console.log(`   Session: ${sessionId || "N/A"}`);
+      console.log(`   User-Agent: ${req.headers["user-agent"] || "N/A"}`);
+      console.log(`   Time: ${new Date().toLocaleTimeString()}`);
+    }
+  }
+
+  /**
    * Get client IP address
    */
   private getClientIP(req: IncomingMessage): string {
@@ -975,7 +1014,7 @@ export class AnalyticsAPIServer {
    */
   private checkRateLimit(req: IncomingMessage): boolean {
     const security = this.config.server?.security;
-    
+
     // Skip rate limiting if not configured
     if (!security?.rateLimit) {
       return true;
@@ -988,12 +1027,12 @@ export class AnalyticsAPIServer {
 
     // Get or create rate limit entry for this IP
     let rateLimitEntry = this.rateLimitMap.get(clientIP);
-    
+
     if (!rateLimitEntry || now > rateLimitEntry.resetTime) {
       // Create new entry or reset expired one
       rateLimitEntry = {
         count: 1,
-        resetTime: now + windowMs
+        resetTime: now + windowMs,
       };
       this.rateLimitMap.set(clientIP, rateLimitEntry);
       return true;
@@ -1001,7 +1040,7 @@ export class AnalyticsAPIServer {
 
     // Increment request count
     rateLimitEntry.count++;
-    
+
     // Check if rate limit exceeded
     if (rateLimitEntry.count > maxRequests) {
       console.warn(`Rate limit exceeded for IP: ${clientIP}`);
@@ -1022,7 +1061,6 @@ export class AnalyticsAPIServer {
       }
     }
   }
-
 
   /**
    * Get the SDK instance

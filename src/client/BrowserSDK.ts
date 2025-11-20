@@ -3,7 +3,7 @@
  * Lightweight client-side SDK for tracking events in web applications
  */
 
-import { EventType, EventContext, AnalyticsEvent } from '../types';
+import { EventType, EventContext, AnalyticsEvent } from "../types";
 
 export interface BrowserSDKConfig {
   apiKey: string;
@@ -18,7 +18,7 @@ export interface BrowserSDKConfig {
   enableOfflineQueue?: boolean;
   maxQueueSize?: number;
   respectDoNotTrack?: boolean;
-  transport?: 'fetch' | 'beacon';
+  transport?: "fetch" | "beacon";
   cookieDomain?: string;
 }
 
@@ -50,13 +50,13 @@ export class BrowserAnalyticsSDK {
       enableOfflineQueue: true,
       maxQueueSize: 1000,
       respectDoNotTrack: true,
-      transport: 'fetch',
-      ...config
+      transport: "fetch",
+      ...config,
     };
 
     // Get or create anonymous ID
     this.anonymousId = this.getOrCreateAnonymousId();
-    
+
     // Get or create session ID
     this.sessionId = this.getOrCreateSessionId();
 
@@ -73,7 +73,10 @@ export class BrowserAnalyticsSDK {
     // Start batch timer
     this.startBatchTimer();
 
-    this.log('Browser SDK initialized', { sessionId: this.sessionId, anonymousId: this.anonymousId });
+    this.log("Browser SDK initialized", {
+      sessionId: this.sessionId,
+      anonymousId: this.anonymousId,
+    });
   }
 
   /**
@@ -82,12 +85,12 @@ export class BrowserAnalyticsSDK {
   track(
     type: EventType | string,
     properties: Record<string, any> = {},
-    context?: Partial<EventContext>
+    context?: Partial<EventContext>,
   ): void {
     try {
       // Check Do Not Track
       if (this.config.respectDoNotTrack && this.isDoNotTrackEnabled()) {
-        this.log('Tracking skipped due to Do Not Track');
+        this.log("Tracking skipped due to Do Not Track");
         return;
       }
 
@@ -98,13 +101,13 @@ export class BrowserAnalyticsSDK {
         userId: this.userId,
         anonymousId: this.anonymousId,
         properties,
-        context: this.buildContext(context)
+        context: this.buildContext(context),
       };
 
       this.addToQueue(event);
     } catch (error) {
       // Silent fail - never block client code
-      this.logError('track', error);
+      this.logError("track", error);
     }
   }
 
@@ -114,18 +117,18 @@ export class BrowserAnalyticsSDK {
   identify(userId: string, traits?: Record<string, any>): void {
     try {
       this.userId = userId;
-      
+
       // Track identify event
-      this.track('identify', {
+      this.track("identify", {
         userId,
         traits: traits || {},
-        anonymousId: this.anonymousId
+        anonymousId: this.anonymousId,
       });
 
-      this.log('User identified', { userId });
+      this.log("User identified", { userId });
     } catch (error) {
       // Silent fail - never block client code
-      this.logError('identify', error);
+      this.logError("identify", error);
     }
   }
 
@@ -135,7 +138,7 @@ export class BrowserAnalyticsSDK {
   page(
     name?: string,
     category?: string,
-    properties: Record<string, any> = {}
+    properties: Record<string, any> = {},
   ): void {
     try {
       this.track(EventType.PAGE_VIEW, {
@@ -145,11 +148,11 @@ export class BrowserAnalyticsSDK {
         url: window.location.href,
         path: window.location.pathname,
         title: document.title,
-        referrer: document.referrer
+        referrer: document.referrer,
       });
     } catch (error) {
       // Silent fail - never block client code
-      this.logError('page', error);
+      this.logError("page", error);
     }
   }
 
@@ -164,9 +167,9 @@ export class BrowserAnalyticsSDK {
     }
 
     this.flushPromise = this.processBatch()
-      .catch(error => {
+      .catch((error) => {
         // Silent fail - log error but don't throw
-        this.logError('flush', error);
+        this.logError("flush", error);
       })
       .finally(() => {
         this.flushPromise = undefined;
@@ -181,10 +184,10 @@ export class BrowserAnalyticsSDK {
       this.sessionId = this.createSessionId();
       this.saveSessionId(this.sessionId);
       this.userId = undefined;
-      this.log('SDK reset', { sessionId: this.sessionId });
+      this.log("SDK reset", { sessionId: this.sessionId });
     } catch (error) {
       // Silent fail - never block client code
-      this.logError('reset', error);
+      this.logError("reset", error);
     }
   }
 
@@ -215,64 +218,68 @@ export class BrowserAnalyticsSDK {
   private enableAutoTracking(): void {
     try {
       // Track clicks - wrapped in try-catch to never block UI
-      document.addEventListener('click', (e) => {
+      document.addEventListener("click", (e) => {
         try {
           const target = e.target as HTMLElement;
-          if (target.tagName === 'A' || target.tagName === 'BUTTON' || target.hasAttribute('data-track')) {
+          if (
+            target.tagName === "A" ||
+            target.tagName === "BUTTON" ||
+            target.hasAttribute("data-track")
+          ) {
             this.track(EventType.CLICK, {
               elementType: target.tagName,
               elementId: target.id,
               elementClass: target.className,
               elementText: target.textContent?.substring(0, 100),
-              trackData: target.getAttribute('data-track')
+              trackData: target.getAttribute("data-track"),
             });
           }
         } catch (error) {
-          this.logError('auto-track-click', error);
+          this.logError("auto-track-click", error);
         }
       });
 
       // Track page visibility changes - wrapped to never block
-      document.addEventListener('visibilitychange', () => {
+      document.addEventListener("visibilitychange", () => {
         try {
-          this.track(document.hidden ? 'page_hidden' : 'page_visible', {
-            hidden: document.hidden
+          this.track(document.hidden ? "page_hidden" : "page_visible", {
+            hidden: document.hidden,
           });
         } catch (error) {
-          this.logError('auto-track-visibility', error);
+          this.logError("auto-track-visibility", error);
         }
       });
 
       // Track errors - wrapped to prevent recursion
-      window.addEventListener('error', (e) => {
+      window.addEventListener("error", (e) => {
         try {
           this.track(EventType.ERROR, {
             message: e.message,
             filename: e.filename,
             lineno: e.lineno,
             colno: e.colno,
-            stack: e.error?.stack
+            stack: e.error?.stack,
           });
         } catch (error) {
-          this.logError('auto-track-error', error);
+          this.logError("auto-track-error", error);
         }
       });
 
       // Track unhandled promise rejections - wrapped to prevent recursion
-      window.addEventListener('unhandledrejection', (e) => {
+      window.addEventListener("unhandledrejection", (e) => {
         try {
           this.track(EventType.ERROR, {
-            message: 'Unhandled Promise Rejection',
-            reason: String(e.reason)
+            message: "Unhandled Promise Rejection",
+            reason: String(e.reason),
           });
         } catch (error) {
-          this.logError('auto-track-rejection', error);
+          this.logError("auto-track-rejection", error);
         }
       });
 
-      this.log('Auto-tracking enabled');
+      this.log("Auto-tracking enabled");
     } catch (error) {
-      this.logError('enableAutoTracking', error);
+      this.logError("enableAutoTracking", error);
     }
   }
 
@@ -281,26 +288,26 @@ export class BrowserAnalyticsSDK {
    */
   private setupOfflineHandling(): void {
     try {
-      window.addEventListener('online', () => {
+      window.addEventListener("online", () => {
         try {
           this.isOnline = true;
-          this.log('Connection restored, flushing queue');
+          this.log("Connection restored, flushing queue");
           this.flush(); // Fire-and-forget flush
         } catch (error) {
-          this.logError('online-handler', error);
+          this.logError("online-handler", error);
         }
       });
 
-      window.addEventListener('offline', () => {
+      window.addEventListener("offline", () => {
         try {
           this.isOnline = false;
-          this.log('Connection lost, queueing events');
+          this.log("Connection lost, queueing events");
         } catch (error) {
-          this.logError('offline-handler', error);
+          this.logError("offline-handler", error);
         }
       });
     } catch (error) {
-      this.logError('setupOfflineHandling', error);
+      this.logError("setupOfflineHandling", error);
     }
   }
 
@@ -310,24 +317,27 @@ export class BrowserAnalyticsSDK {
   private addToQueue(event: Partial<AnalyticsEvent>): void {
     try {
       if (this.queue.length >= this.config.maxQueueSize!) {
-        this.log('Queue full, dropping oldest event');
+        this.log("Queue full, dropping oldest event");
         this.queue.shift();
       }
 
       this.queue.push({
         event,
         attempts: 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      this.log('Event queued', { type: event.type, queueSize: this.queue.length });
+      this.log("Event queued", {
+        type: event.type,
+        queueSize: this.queue.length,
+      });
 
       // Flush if batch size reached (fire-and-forget)
       if (this.queue.length >= this.config.batchSize!) {
         this.flush();
       }
     } catch (error) {
-      this.logError('addToQueue', error);
+      this.logError("addToQueue", error);
     }
   }
 
@@ -342,11 +352,11 @@ export class BrowserAnalyticsSDK {
             this.flush(); // Fire-and-forget flush
           }
         } catch (error) {
-          this.logError('batch-timer', error);
+          this.logError("batch-timer", error);
         }
       }, this.config.batchInterval);
     } catch (error) {
-      this.logError('startBatchTimer', error);
+      this.logError("startBatchTimer", error);
     }
   }
 
@@ -360,29 +370,29 @@ export class BrowserAnalyticsSDK {
       }
 
       const batch = this.queue.splice(0, this.config.batchSize);
-      const events = batch.map(item => item.event);
+      const events = batch.map((item) => item.event);
 
       try {
         await this.sendEvents(events);
-        this.log('Batch sent successfully', { count: events.length });
+        this.log("Batch sent successfully", { count: events.length });
       } catch (error) {
-        this.log('Batch send failed', error);
-        
+        this.log("Batch send failed", error);
+
         // Re-queue failed events
         for (const item of batch) {
           if (item.attempts < this.config.maxRetries!) {
             item.attempts++;
             this.queue.unshift(item);
           } else {
-            this.log('Event dropped after max retries', { event: item.event });
+            this.log("Event dropped after max retries", { event: item.event });
             // Send SDK error to backend silently
-            this.reportSDKError('max_retries_exceeded', item.event);
+            this.reportSDKError("max_retries_exceeded", item.event);
           }
         }
       }
     } catch (error) {
       // Outer catch to ensure processBatch never throws
-      this.logError('processBatch', error);
+      this.logError("processBatch", error);
     }
   }
 
@@ -392,29 +402,41 @@ export class BrowserAnalyticsSDK {
   private async sendEvents(events: Partial<AnalyticsEvent>[]): Promise<void> {
     try {
       const url = `${this.config.endpoint}/events/batch`;
-      
-      if (this.config.transport === 'beacon' && navigator.sendBeacon) {
-        const success = navigator.sendBeacon(url, JSON.stringify({
-          apiKey: this.config.apiKey,
-          events
-        }));
-        
+
+      if (this.config.transport === "beacon" && navigator.sendBeacon) {
+        const success = navigator.sendBeacon(
+          url,
+          JSON.stringify({
+            apiKey: this.config.apiKey,
+            events,
+          }),
+        );
+
         if (!success) {
-          throw new Error('Beacon send failed');
+          throw new Error("Beacon send failed");
         }
       } else {
         const response = await fetch(url, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': this.config.apiKey
+            "Content-Type": "application/json",
+            "X-API-Key": this.config.apiKey,
+            "X-Session-Id": this.sessionId,
           },
           body: JSON.stringify({ events }),
-          keepalive: true
+          keepalive: true,
         });
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Log successful connection on first request
+        if (events.length > 0) {
+          this.log("✅ Successfully sent events to analytics server", {
+            count: events.length,
+            endpoint: this.config.endpoint,
+          });
         }
       }
     } catch (error) {
@@ -433,30 +455,30 @@ export class BrowserAnalyticsSDK {
           url: window.location.href,
           path: window.location.pathname,
           title: document.title,
-          referrer: document.referrer
+          referrer: document.referrer,
         },
         browser: {
           name: this.getBrowserName(),
           version: this.getBrowserVersion(),
-          userAgent: navigator.userAgent
+          userAgent: navigator.userAgent,
         },
         device: {
           type: this.getDeviceType(),
-          os: this.getOS()
+          os: this.getOS(),
         },
         screen: {
           width: window.screen.width,
           height: window.screen.height,
-          density: window.devicePixelRatio
+          density: window.devicePixelRatio,
         },
         locale: navigator.language,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        ...partialContext
+        ...partialContext,
       };
 
       return context;
     } catch (error) {
-      this.logError('buildContext', error);
+      this.logError("buildContext", error);
       // Return minimal context on error
       return partialContext || {};
     }
@@ -466,15 +488,15 @@ export class BrowserAnalyticsSDK {
    * Get or create anonymous ID
    */
   private getOrCreateAnonymousId(): string {
-    const key = '_analytics_anon_id';
+    const key = "_analytics_anon_id";
     let id = this.getCookie(key) || localStorage.getItem(key);
-    
+
     if (!id) {
       id = this.generateId();
       this.setCookie(key, id, 365);
       localStorage.setItem(key, id);
     }
-    
+
     return id;
   }
 
@@ -482,12 +504,12 @@ export class BrowserAnalyticsSDK {
    * Get or create session ID
    */
   private getOrCreateSessionId(): string {
-    const key = '_analytics_session_id';
-    const timestampKey = '_analytics_session_timestamp';
-    
+    const key = "_analytics_session_id";
+    const timestampKey = "_analytics_session_timestamp";
+
     let sessionId = sessionStorage.getItem(key);
     const lastActivity = sessionStorage.getItem(timestampKey);
-    
+
     // Check if session expired
     if (sessionId && lastActivity) {
       const elapsed = Date.now() - parseInt(lastActivity, 10);
@@ -495,14 +517,14 @@ export class BrowserAnalyticsSDK {
         sessionId = null;
       }
     }
-    
+
     if (!sessionId) {
       sessionId = this.createSessionId();
       sessionStorage.setItem(key, sessionId);
     }
-    
+
     sessionStorage.setItem(timestampKey, Date.now().toString());
-    
+
     return sessionId;
   }
 
@@ -517,8 +539,8 @@ export class BrowserAnalyticsSDK {
    * Save session ID
    */
   private saveSessionId(sessionId: string): void {
-    const key = '_analytics_session_id';
-    const timestampKey = '_analytics_session_timestamp';
+    const key = "_analytics_session_id";
+    const timestampKey = "_analytics_session_timestamp";
     sessionStorage.setItem(key, sessionId);
     sessionStorage.setItem(timestampKey, Date.now().toString());
   }
@@ -527,9 +549,9 @@ export class BrowserAnalyticsSDK {
    * Generate unique ID
    */
   private generateId(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
   }
@@ -538,9 +560,11 @@ export class BrowserAnalyticsSDK {
    * Check if Do Not Track is enabled
    */
   private isDoNotTrackEnabled(): boolean {
-    return navigator.doNotTrack === '1' || 
-           (window as any).doNotTrack === '1' || 
-           (navigator as any).msDoNotTrack === '1';
+    return (
+      navigator.doNotTrack === "1" ||
+      (window as any).doNotTrack === "1" ||
+      (navigator as any).msDoNotTrack === "1"
+    );
   }
 
   /**
@@ -548,12 +572,12 @@ export class BrowserAnalyticsSDK {
    */
   private getBrowserName(): string {
     const ua = navigator.userAgent;
-    if (ua.includes('Firefox')) return 'Firefox';
-    if (ua.includes('Chrome')) return 'Chrome';
-    if (ua.includes('Safari')) return 'Safari';
-    if (ua.includes('Edge')) return 'Edge';
-    if (ua.includes('MSIE') || ua.includes('Trident')) return 'IE';
-    return 'Unknown';
+    if (ua.includes("Firefox")) return "Firefox";
+    if (ua.includes("Chrome")) return "Chrome";
+    if (ua.includes("Safari")) return "Safari";
+    if (ua.includes("Edge")) return "Edge";
+    if (ua.includes("MSIE") || ua.includes("Trident")) return "IE";
+    return "Unknown";
   }
 
   /**
@@ -562,7 +586,7 @@ export class BrowserAnalyticsSDK {
   private getBrowserVersion(): string {
     const ua = navigator.userAgent;
     const match = ua.match(/(Firefox|Chrome|Safari|Edge)\/(\d+)/);
-    return match ? match[2] : 'Unknown';
+    return match ? match[2] : "Unknown";
   }
 
   /**
@@ -571,12 +595,16 @@ export class BrowserAnalyticsSDK {
   private getDeviceType(): string {
     const ua = navigator.userAgent;
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
-      return 'tablet';
+      return "tablet";
     }
-    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
-      return 'mobile';
+    if (
+      /Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(
+        ua,
+      )
+    ) {
+      return "mobile";
     }
-    return 'desktop';
+    return "desktop";
   }
 
   /**
@@ -584,25 +612,31 @@ export class BrowserAnalyticsSDK {
    */
   private getOS(): string {
     const ua = navigator.userAgent;
-    if (ua.includes('Win')) return 'Windows';
-    if (ua.includes('Mac')) return 'MacOS';
-    if (ua.includes('Linux')) return 'Linux';
-    if (ua.includes('Android')) return 'Android';
-    if (ua.includes('iOS')) return 'iOS';
-    return 'Unknown';
+    if (ua.includes("Win")) return "Windows";
+    if (ua.includes("Mac")) return "MacOS";
+    if (ua.includes("Linux")) return "Linux";
+    if (ua.includes("Android")) return "Android";
+    if (ua.includes("iOS")) return "iOS";
+    return "Unknown";
   }
 
   /**
    * Cookie helpers
    */
   private setCookie(name: string, value: string, days: number): void {
-    const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
-    const domain = this.config.cookieDomain ? `; domain=${this.config.cookieDomain}` : '';
+    const expires = new Date(
+      Date.now() + days * 24 * 60 * 60 * 1000,
+    ).toUTCString();
+    const domain = this.config.cookieDomain
+      ? `; domain=${this.config.cookieDomain}`
+      : "";
     document.cookie = `${name}=${value}; expires=${expires}; path=/${domain}; SameSite=Lax`;
   }
 
   private getCookie(name: string): string | null {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    const match = document.cookie.match(
+      new RegExp("(^| )" + name + "=([^;]+)"),
+    );
     return match ? match[2] : null;
   }
 
@@ -612,7 +646,7 @@ export class BrowserAnalyticsSDK {
   private log(message: string, data?: any): void {
     try {
       if (this.config.debug) {
-        console.log(`[Analytics SDK] ${message}`, data || '');
+        console.log(`[Analytics SDK] ${message}`, data || "");
       }
     } catch (error) {
       // Even logging can fail, suppress it
@@ -624,15 +658,19 @@ export class BrowserAnalyticsSDK {
    */
   private logError(context: string, error: any): void {
     try {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      
+
       if (this.config.debug) {
         console.error(`[Analytics SDK Error] ${context}:`, errorMessage);
       }
 
       // Send SDK error to backend silently (fire-and-forget)
-      this.reportSDKError(context, { message: errorMessage, stack: errorStack });
+      this.reportSDKError(context, {
+        message: errorMessage,
+        stack: errorStack,
+      });
     } catch (e) {
       // Complete silence - don't let error reporting cause more errors
     }
@@ -645,17 +683,17 @@ export class BrowserAnalyticsSDK {
     try {
       // Queue SDK error as a special event type
       const errorEvent: Partial<AnalyticsEvent> = {
-        type: 'sdk_error',
+        type: "sdk_error",
         timestamp: Date.now(),
         sessionId: this.sessionId,
         anonymousId: this.anonymousId,
         properties: {
           context,
           details,
-          sdkVersion: '1.0.0',
-          userAgent: navigator.userAgent
+          sdkVersion: "1.0.0",
+          userAgent: navigator.userAgent,
         },
-        context: {} // Minimal context to avoid recursion
+        context: {}, // Minimal context to avoid recursion
       };
 
       // Add directly to queue without triggering flush
@@ -663,7 +701,7 @@ export class BrowserAnalyticsSDK {
         this.queue.push({
           event: errorEvent,
           attempts: 0,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       }
     } catch (e) {
@@ -679,19 +717,22 @@ export class BrowserAnalyticsSDK {
       if (this.batchTimer) {
         clearInterval(this.batchTimer);
       }
-      
+
       // Flush remaining events (fire-and-forget)
       this.flush();
-      
-      this.log('SDK destroyed');
+
+      this.log("SDK destroyed");
     } catch (error) {
-      this.logError('destroy', error);
+      this.logError("destroy", error);
     }
   }
 }
 
-// Auto-initialize from global config if present
-if (typeof window !== 'undefined') {
+// Expose BrowserAnalyticsSDK to window for browser usage
+if (typeof window !== "undefined") {
+  (window as any).BrowserAnalyticsSDK = BrowserAnalyticsSDK;
+
+  // Auto-initialize from global config if present
   const globalConfig = (window as any).ANALYTICS_CONFIG;
   if (globalConfig) {
     (window as any).analytics = new BrowserAnalyticsSDK(globalConfig);

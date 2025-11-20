@@ -217,9 +217,37 @@ analytics.identify('user-123', {
 </code></pre>
     </div>
 
+    <!-- CommonJS shim for browser compatibility -->
+    <script>
+        // Create exports and module objects for CommonJS compatibility
+        var exports = {};
+        var module = { exports: exports };
+
+        // Create require shim
+        var require = function(path) {
+            if (path === '../types') {
+                // Return EventType enum
+                return {
+                    EventType: {
+                        PAGE_VIEW: 'page_view',
+                        CLICK: 'click',
+                        ERROR: 'error'
+                    }
+                };
+            }
+            return {};
+        };
+    </script>
+
     <!-- Include the Browser SDK -->
     <script src="../../dist/client/BrowserSDK.js"></script>
-    
+
+    <!-- Extract BrowserAnalyticsSDK from exports -->
+    <script>
+        // Make BrowserAnalyticsSDK available globally
+        window.BrowserAnalyticsSDK = exports.BrowserAnalyticsSDK || window.BrowserAnalyticsSDK;
+    </script>
+
     <script>
         // Analytics instance
         let analytics;
